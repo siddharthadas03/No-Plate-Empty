@@ -91,7 +91,7 @@ const AdminLogin = () => {
               <LockKeyhole className="mb-3 h-5 w-5" />
               <p className="font-semibold">Protected access</p>
               <p className="mt-2 text-sm text-primary-foreground/70">
-                Only backend `SUPER_ADMIN` accounts can continue into the admin
+                Only authorized super admin accounts can open the admin
                 workspace.
               </p>
             </div>

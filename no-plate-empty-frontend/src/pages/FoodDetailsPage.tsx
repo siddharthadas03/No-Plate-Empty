@@ -128,9 +128,10 @@ const FoodDetailsPage = () => {
 
             <Card className="border-border/60 bg-background/92 shadow-lg">
               <CardHeader>
-                <CardTitle>Backend Record Snapshot</CardTitle>
+                <CardTitle>Food Summary</CardTitle>
                 <CardDescription>
-                  Loaded from `GET /api/v1/food/get/:id`.
+                  Review availability, expiry timing, tags, and outlet details
+                  for this item.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">

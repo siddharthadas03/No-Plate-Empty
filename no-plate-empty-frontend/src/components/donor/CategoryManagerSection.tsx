@@ -130,7 +130,8 @@ const CategoryManagerSection = () => {
             {editingCategoryId ? "Edit Category" : "Create Category"}
           </CardTitle>
           <CardDescription>
-            Connected to the backend category CRUD endpoints.
+            Create and organize categories to keep your food catalog clear and easy
+            to browse.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

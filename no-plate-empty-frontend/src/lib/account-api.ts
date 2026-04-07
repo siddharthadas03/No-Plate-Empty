@@ -34,7 +34,12 @@ const accountRequest = async <T>(
 
 export const updateCurrentUser = (
   token: string,
-  body: { name?: string; email?: string },
+  body: {
+    name?: string;
+    email?: string;
+    location?: AuthUser["location"];
+    searchRadiusKm?: number;
+  },
 ) =>
   accountRequest<{ message: string; user: AuthUser }>("/api/auth/me", token, {
     method: "PATCH",

@@ -66,10 +66,8 @@ const NgoDashboard = () => {
             Welcome, {user.name}
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-            Your backend stores recipient users as `NGO` accounts, then lets you
-            request available food and track order status from here. Food is now
-            organized under donor outlets, so you can see outlet-wise pickup
-            locations before arranging collection or delivery.
+            Review available food, compare outlet pickup options, and track every
+            request from one workspace.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Badge variant="outline">{user.email}</Badge>

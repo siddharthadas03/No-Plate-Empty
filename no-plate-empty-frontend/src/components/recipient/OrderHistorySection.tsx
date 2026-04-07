@@ -141,7 +141,8 @@ const OrderHistorySection = ({
               My Orders
             </CardTitle>
             <CardDescription>
-              Tracks `GET /api/v1/food/my-orders` from the backend.
+              Monitor request status, pickup details, and recent updates for every
+              order.
             </CardDescription>
           </div>
           <Button

@@ -180,7 +180,7 @@ const FoodBrowseSection = ({ onOrderPlaced }: FoodBrowseSectionProps) => {
     if (selectedOutletId && outletId !== selectedOutletId) {
       setMessage({
         type: "error",
-        text: "The backend allows orders from one outlet at a time. Clear your selection or choose food from the same outlet.",
+        text: "Please select items from a single outlet for each order. Clear your current selection to switch outlets.",
       });
       return;
     }
@@ -230,8 +230,8 @@ const FoodBrowseSection = ({ onOrderPlaced }: FoodBrowseSectionProps) => {
                 Browse Available Food
               </CardTitle>
               <CardDescription>
-                Foods are now grouped by donor outlet, and each order is placed
-                against one outlet pickup location.
+                Search live listings, compare outlet pickup details, and build one
+                order from a single outlet at a time.
               </CardDescription>
             </div>
             <Button
@@ -296,7 +296,7 @@ const FoodBrowseSection = ({ onOrderPlaced }: FoodBrowseSectionProps) => {
                 {selectedFoodIds.length}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                The backend allows one donor outlet per order.
+                Complete each request with items from the same outlet.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="outline">

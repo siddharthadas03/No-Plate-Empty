@@ -62,8 +62,8 @@ const DonorDirectorySection = () => {
             Donor Outlet Directory
           </CardTitle>
           <CardDescription>
-            Uses the backend donor outlet listing so NGOs can inspect pickup
-            locations and outlet availability.
+            Review outlet addresses, operating hours, and pickup or delivery
+            availability before placing a request.
           </CardDescription>
         </div>
 

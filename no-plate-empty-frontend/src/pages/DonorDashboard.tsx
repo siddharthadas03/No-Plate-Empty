@@ -10,6 +10,7 @@ import DonorProfileSection from "@/components/donor/DonorProfileSection";
 import CategoryManagerSection from "@/components/donor/CategoryManagerSection";
 import FoodManagerSection from "@/components/donor/FoodManagerSection";
 import IncomingOrdersSection from "@/components/donor/IncomingOrdersSection";
+import PerformanceAnalyticsSection from "@/components/donor/PerformanceAnalyticsSection";
 
 const DonorDashboard = () => {
   const navigate = useNavigate();
@@ -67,9 +68,8 @@ const DonorDashboard = () => {
             Welcome, {user.name}
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-            This page is connected to your backend donor features. You can manage
-            multiple donor outlets, assign foods to a specific outlet, and handle
-            incoming NGO orders from here.
+            Manage outlets, publish available food, respond to incoming requests,
+            and review planning insights from one dashboard.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Badge variant="outline">{user.email}</Badge>
@@ -88,6 +88,7 @@ const DonorDashboard = () => {
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="foods">Foods</TabsTrigger>
             <TabsTrigger value="orders">Incoming Orders</TabsTrigger>
+            <TabsTrigger value="analytics">Performance Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile">
@@ -120,6 +121,14 @@ const DonorDashboard = () => {
               description="The incoming orders section had a runtime problem."
             >
               <IncomingOrdersSection />
+            </SectionErrorBoundary>
+          </TabsContent>
+          <TabsContent value="analytics">
+            <SectionErrorBoundary
+              title="Analytics Unavailable"
+              description="The donor analytics section had a runtime problem."
+            >
+              <PerformanceAnalyticsSection />
             </SectionErrorBoundary>
           </TabsContent>
         </Tabs>

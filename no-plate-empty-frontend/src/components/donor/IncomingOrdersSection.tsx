@@ -137,9 +137,8 @@ const IncomingOrdersSection = () => {
             Incoming Orders
           </CardTitle>
           <CardDescription>
-            Powered by donor order listing plus backend status transitions. A
-            pickup location must be saved on the donor outlet before you can
-            accept an NGO order.
+            Review incoming requests, confirm availability, and keep outlet pickup
+            details up to date before accepting an order.
           </CardDescription>
         </div>
         <Button variant="outline" onClick={() => void refreshOrders()} disabled={isRefreshing}>

@@ -2,6 +2,19 @@ import { API } from "@/lib/api";
 
 export type UserRole = "SUPER_ADMIN" | "DONOR" | "NGO";
 
+export interface UserLocation {
+  id?: string;
+  title?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  latitude?: number;
+  latitudeDelta?: number;
+  longitude?: number;
+  longitudeDelta?: number;
+}
+
 export interface AuthUser {
   _id: string;
   name: string;
@@ -12,6 +25,8 @@ export interface AuthUser {
   isRejected?: boolean;
   rejectedAt?: string | null;
   rejectionDeleteAt?: string | null;
+  location?: UserLocation;
+  searchRadiusKm?: number;
   createdAt?: string;
   updatedAt?: string;
 }

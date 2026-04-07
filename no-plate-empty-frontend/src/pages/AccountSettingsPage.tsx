@@ -28,10 +28,22 @@ import {
   updateCurrentUser,
 } from "@/lib/account-api";
 
+const DEFAULT_NGO_RADIUS_KM = "10";
+
 const AccountSettingsPage = () => {
   const navigate = useNavigate();
   const { clearSession, logout, refreshUser, token, user } = useAuth();
-  const [profileForm, setProfileForm] = useState({ name: "", email: "" });
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    latitude: "",
+    longitude: "",
+    searchRadiusKm: DEFAULT_NGO_RADIUS_KM,
+  });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -63,6 +75,22 @@ const AccountSettingsPage = () => {
     setProfileForm({
       name: user.name || "",
       email: user.email || "",
+      address: user.location?.address || "",
+      city: user.location?.city || "",
+      state: user.location?.state || "",
+      pincode: user.location?.pincode || "",
+      latitude:
+        typeof user.location?.latitude === "number"
+          ? String(user.location.latitude)
+          : "",
+      longitude:
+        typeof user.location?.longitude === "number"
+          ? String(user.location.longitude)
+          : "",
+      searchRadiusKm:
+        typeof user.searchRadiusKm === "number"
+          ? String(user.searchRadiusKm)
+          : DEFAULT_NGO_RADIUS_KM,
     });
   }, [user]);
 
@@ -85,13 +113,85 @@ const AccountSettingsPage = () => {
       return;
     }
 
+    if (user.role === "NGO") {
+      const latitudeFilled = profileForm.latitude.trim().length > 0;
+      const longitudeFilled = profileForm.longitude.trim().length > 0;
+
+      if (latitudeFilled !== longitudeFilled) {
+        setProfileMessage({
+          type: "error",
+          text: "Enter both latitude and longitude together for GPS matching.",
+        });
+        return;
+      }
+
+      if (latitudeFilled && Number.isNaN(Number(profileForm.latitude))) {
+        setProfileMessage({
+          type: "error",
+          text: "Latitude must be a valid number.",
+        });
+        return;
+      }
+
+      if (longitudeFilled && Number.isNaN(Number(profileForm.longitude))) {
+        setProfileMessage({
+          type: "error",
+          text: "Longitude must be a valid number.",
+        });
+        return;
+      }
+
+      if (
+        profileForm.searchRadiusKm.trim().length > 0 &&
+        Number.isNaN(Number(profileForm.searchRadiusKm))
+      ) {
+        setProfileMessage({
+          type: "error",
+          text: "Search radius must be a valid number.",
+        });
+        return;
+      }
+    }
+
     setIsSavingProfile(true);
     setProfileMessage(null);
 
     try {
+      const ngoProfilePayload =
+        user.role === "NGO"
+          ? {
+              location: {
+                address: profileForm.address.trim() || undefined,
+                city: profileForm.city.trim() || undefined,
+                state: profileForm.state.trim() || undefined,
+                pincode: profileForm.pincode.trim() || undefined,
+                latitude: profileForm.latitude
+                  ? Number(profileForm.latitude)
+                  : undefined,
+                longitude: profileForm.longitude
+                  ? Number(profileForm.longitude)
+                  : undefined,
+              },
+              address: profileForm.address.trim() || undefined,
+              city: profileForm.city.trim() || undefined,
+              state: profileForm.state.trim() || undefined,
+              pincode: profileForm.pincode.trim() || undefined,
+              latitude: profileForm.latitude
+                ? Number(profileForm.latitude)
+                : undefined,
+              longitude: profileForm.longitude
+                ? Number(profileForm.longitude)
+                : undefined,
+              searchRadiusKm: profileForm.searchRadiusKm
+                ? Number(profileForm.searchRadiusKm)
+                : undefined,
+            }
+          : {};
+
       const response = await updateCurrentUser(token, {
         name: profileForm.name.trim(),
         email: profileForm.email.trim(),
+        ...ngoProfilePayload,
       });
       await refreshUser();
       setProfileMessage({
@@ -219,8 +319,7 @@ const AccountSettingsPage = () => {
             Manage your profile, password, and account access.
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-            This page is wired to the backend account endpoints for updating your
-            profile, changing your password, and deleting your account.
+            Keep your profile, password, and workspace access details up to date.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Badge variant="outline">{user.email}</Badge>
@@ -241,7 +340,7 @@ const AccountSettingsPage = () => {
                 Profile Settings
               </CardTitle>
               <CardDescription>
-                Connected to `PATCH /api/auth/me`.
+                Update the information shown across your workspace.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -286,6 +385,127 @@ const AccountSettingsPage = () => {
                 />
               </div>
 
+              {user.role === "NGO" && (
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      NGO Matching Location
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Save your main coordination address and map location to
+                      improve nearby outlet matching.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="settings-address">Address</Label>
+                      <Input
+                        id="settings-address"
+                        value={profileForm.address}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            address: event.target.value,
+                          }))
+                        }
+                        placeholder="NGO office or pickup coordination address"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-city">City</Label>
+                      <Input
+                        id="settings-city"
+                        value={profileForm.city}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            city: event.target.value,
+                          }))
+                        }
+                        placeholder="Kolkata"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-state">State</Label>
+                      <Input
+                        id="settings-state"
+                        value={profileForm.state}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            state: event.target.value,
+                          }))
+                        }
+                        placeholder="West Bengal"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-pincode">Pincode</Label>
+                      <Input
+                        id="settings-pincode"
+                        value={profileForm.pincode}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            pincode: event.target.value,
+                          }))
+                        }
+                        placeholder="700001"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-radius">Search Radius (km)</Label>
+                      <Input
+                        id="settings-radius"
+                        value={profileForm.searchRadiusKm}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            searchRadiusKm: event.target.value,
+                          }))
+                        }
+                        placeholder="10"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-latitude">Latitude</Label>
+                      <Input
+                        id="settings-latitude"
+                        value={profileForm.latitude}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            latitude: event.target.value,
+                          }))
+                        }
+                        placeholder="22.5726"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-longitude">Longitude</Label>
+                      <Input
+                        id="settings-longitude"
+                        value={profileForm.longitude}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            longitude: event.target.value,
+                          }))
+                        }
+                        placeholder="88.3639"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <Button onClick={() => void handleProfileUpdate()} disabled={isSavingProfile}>
                 <Save className="mr-2 h-4 w-4" />
                 {isSavingProfile ? "Saving..." : "Save Profile Changes"}
@@ -300,37 +520,57 @@ const AccountSettingsPage = () => {
                 Account Summary
               </CardTitle>
               <CardDescription>
-                Current session details loaded from your backend-authenticated user.
+                Your current account identity, access status, and saved workspace
+                details.
               </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Signed In As
+              </p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                {user.name}
+              </p>
+              <p className="text-muted-foreground">{user.email}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-border/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Signed In As
+                  Role
                 </p>
                 <p className="mt-2 text-lg font-semibold text-foreground">
-                  {user.name}
+                  {getRoleLabel(user.role)}
                 </p>
-                <p className="text-muted-foreground">{user.email}</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-border/60 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Status
+                </p>
+                <p className="mt-2 font-semibold text-foreground">
+                  {user.isBlocked ? "Blocked" : "Active"}
+                </p>
+              </div>
+            </div>
+              {user.role === "NGO" && (
                 <div className="rounded-2xl border border-border/60 p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Role
+                    Matching Location
                   </p>
                   <p className="mt-2 font-semibold text-foreground">
-                    {getRoleLabel(user.role)}
+                    {user.location?.address || "Location not saved yet"}
                   </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Radius: {user.searchRadiusKm ?? 10} km
+                  </p>
+                  {typeof user.location?.latitude === "number" &&
+                    typeof user.location?.longitude === "number" && (
+                      <p className="mt-1 text-muted-foreground">
+                        {user.location.latitude}, {user.location.longitude}
+                      </p>
+                    )}
                 </div>
-                <div className="rounded-2xl border border-border/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    Status
-                  </p>
-                  <p className="mt-2 font-semibold text-foreground">
-                    {user.isBlocked ? "Blocked" : "Active"}
-                  </p>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -341,7 +581,7 @@ const AccountSettingsPage = () => {
                 Change Password
               </CardTitle>
               <CardDescription>
-                Connected to `PATCH /api/auth/reset-password`.
+                Choose a strong password and update it whenever needed.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -416,8 +656,7 @@ const AccountSettingsPage = () => {
                 Delete Account
               </CardTitle>
               <CardDescription>
-                Connected to `DELETE /api/auth/me`. This action permanently removes
-                the signed-in user.
+                This action is permanent and requires password confirmation.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

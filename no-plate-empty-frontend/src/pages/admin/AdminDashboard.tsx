@@ -149,17 +149,15 @@ const AdminDashboard = () => {
   return (
     <DashboardShell
       title="Admin Dashboard"
-      description="Review backend-backed registration requests and approve donor or NGO accounts before they can sign in."
+      description="Review pending registrations and grant access to approved donor and recipient organizations."
     >
       <Card className="border-border/60 bg-background/90 shadow-lg">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle>Pending User Approvals</CardTitle>
             <CardDescription>
-              Connected to `GET /api/admin/pending-users`, `PATCH /api/admin/approve/:id`,
-              and `PATCH /api/admin/reject/:id`. Approved users can sign in immediately.
-              Rejected users will see the rejection message until the retention window
-              ends and their account is deleted automatically.
+              Approve or reject requests, then keep the queue clear so eligible
+              users can sign in without delay.
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-3 text-sm">

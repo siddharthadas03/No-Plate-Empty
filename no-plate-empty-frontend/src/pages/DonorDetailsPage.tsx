@@ -125,10 +125,11 @@ const DonorDetailsPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Store className="h-5 w-5 text-primary" />
-                  Outlet Record
+                  Outlet Summary
                 </CardTitle>
                 <CardDescription>
-                  Loaded from `GET /api/v1/Doner/get/:id`.
+                  Review this outlet's operating details, location information,
+                  and published food labels.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">

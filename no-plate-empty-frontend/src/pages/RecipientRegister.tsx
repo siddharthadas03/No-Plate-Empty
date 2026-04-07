@@ -84,8 +84,8 @@ export const RecipientModal = ({
             Register as Recipient Organization
           </DialogTitle>
           <DialogDescription>
-            This creates an `NGO` account in the backend. Admin approval is
-            required before you can log in.
+            Create your recipient organization account. Access will be available
+            after admin approval.
           </DialogDescription>
         </DialogHeader>
 

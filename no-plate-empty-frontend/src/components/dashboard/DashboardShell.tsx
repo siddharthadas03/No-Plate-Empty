@@ -92,7 +92,7 @@ const DashboardShell = ({
             <CardHeader>
               <CardTitle>Account Snapshot</CardTitle>
               <CardDescription>
-                Your current backend-linked session details.
+                Your active account details and access status.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
