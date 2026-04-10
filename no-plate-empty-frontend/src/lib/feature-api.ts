@@ -7,6 +7,9 @@ import {
 
 export interface DonorLocation {
   id?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   latitude?: number;
   latitudeDelta?: number;
   longitude?: number;
@@ -34,9 +37,18 @@ export interface DonorEntry {
   isOpen?: boolean;
   rating?: number;
   ratingCount?: number;
+  distanceKm?: number;
+  matchMode?: "geo" | "pincode" | "city_state" | "city" | "state";
   location?: DonorLocation;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface MatchingMeta {
+  status: "ready" | "needs_location" | "needs_more_detail";
+  mode: "geo" | "pincode" | "city_state" | "city" | "state" | "none";
+  radiusKm: number;
+  summary: string;
 }
 
 export interface Category {
@@ -61,7 +73,17 @@ export interface FoodItem {
     | string
     | Pick<
         DonorEntry,
-        "_id" | "owner" | "title" | "imageUrl" | "time" | "pickup" | "delivery" | "isOpen" | "location"
+        | "_id"
+        | "owner"
+        | "title"
+        | "imageUrl"
+        | "time"
+        | "pickup"
+        | "delivery"
+        | "isOpen"
+        | "location"
+        | "distanceKm"
+        | "matchMode"
       >;
   expireTime?: string;
   rating?: number;
@@ -269,6 +291,14 @@ export const deleteCategory = (token: string, id: string) =>
 export const getAllDonorEntries = () =>
   apiRequest<{ Doners: DonorEntry[] }>("/api/v1/Doner/get-all-Doners");
 
+export const getNearbyDonorEntries = (token: string) =>
+  apiRequest<{ Doners: DonorEntry[]; matching: MatchingMeta }>(
+    "/api/v1/Doner/nearby",
+    {
+      token,
+    },
+  );
+
 export const getMyDonorEntry = (token: string) =>
   apiRequest<{ doner: DonorEntry }>("/api/v1/Doner/me", {
     token,
@@ -311,6 +341,11 @@ export const deleteDonorEntry = (token: string, id: string) =>
 
 export const getAllFoods = () =>
   apiRequest<{ foods: FoodItem[] }>("/api/v1/food/get-all-food");
+
+export const getNearbyFoods = (token: string) =>
+  apiRequest<{ foods: FoodItem[]; matching: MatchingMeta }>("/api/v1/food/nearby", {
+    token,
+  });
 
 export const getSingleFood = (id: string) =>
   apiRequest<{ food: FoodItem }>(`/api/v1/food/get/${id}`);

@@ -12,43 +12,78 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getErrorMessage } from "@/lib/auth";
-import { DonorEntry, getAllDonorEntries } from "@/lib/feature-api";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DonorEntry,
+  MatchingMeta,
+  getNearbyDonorEntries,
+} from "@/lib/feature-api";
 
 const DonorDirectorySection = () => {
+  const { token } = useAuth();
   const [entries, setEntries] = useState<DonorEntry[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [matching, setMatching] = useState<MatchingMeta | null>(null);
   const [message, setMessage] = useState<{
-    type: "error";
+    type: "error" | "info";
     text: string;
   } | null>(null);
 
   useEffect(() => {
+    if (!token) {
+      setEntries([]);
+      setIsLoading(false);
+      return;
+    }
+
     const loadEntries = async () => {
       setIsLoading(true);
       try {
-        const response = await getAllDonorEntries();
+        const response = await getNearbyDonorEntries(token);
         setEntries(response.Doners || []);
-        setMessage(null);
+        setMatching(response.matching || null);
+        setMessage(
+          response.matching?.status === "ready"
+            ? {
+                type: "info",
+                text: response.matching.summary,
+              }
+            : response.matching
+              ? {
+                  type: "info",
+                  text: response.matching.summary,
+                }
+              : null,
+        );
       } catch (error) {
         const text = getErrorMessage(error, "Unable to load donor directory.");
-        if (text === "No Doners Found") {
-          setEntries([]);
-          setMessage(null);
-        } else {
-          setMessage({ type: "error", text });
-        }
+        setEntries([]);
+        setMatching(null);
+        setMessage({ type: "error", text });
       } finally {
         setIsLoading(false);
       }
     };
 
     void loadEntries();
-  }, []);
+  }, [token]);
+
+  if (!token) {
+    return null;
+  }
 
   const normalizedSearch = search.trim().toLowerCase();
   const visibleEntries = entries.filter((entry) =>
-    [entry.title, entry.time, entry.location?.address, entry.location?.title]
+    [
+      entry.title,
+      entry.time,
+      entry.location?.address,
+      entry.location?.title,
+      entry.location?.city,
+      entry.location?.state,
+      entry.location?.pincode,
+    ]
       .filter(Boolean)
       .some((value) => value?.toLowerCase().includes(normalizedSearch)),
   );
@@ -70,11 +105,17 @@ const DonorDirectorySection = () => {
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search outlet title, time, or address"
+          placeholder="Search outlet title, address, city, state, or pincode"
         />
 
         {message && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              message.type === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-blue-200 bg-blue-50 text-blue-700"
+            }`}
+          >
             {message.text}
           </div>
         )}
@@ -107,12 +148,29 @@ const DonorDirectorySection = () => {
                     <p>{entry.time || "No operating time shared"}</p>
                     <p className="flex items-start gap-2">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span>{entry.location?.address || "No address shared"}</span>
+                      <span>
+                        {[
+                          entry.location?.address,
+                          entry.location?.city,
+                          entry.location?.state,
+                          entry.location?.pincode,
+                        ]
+                          .filter(Boolean)
+                          .join(", ") || "No address shared"}
+                      </span>
                     </p>
+                    {typeof entry.distanceKm === "number" && (
+                      <p>{entry.distanceKm} km away</p>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {entry.pickup && <Badge variant="outline">Pickup</Badge>}
                     {entry.delivery && <Badge variant="outline">Delivery</Badge>}
+                    {matching?.mode && matching.mode !== "none" && (
+                      <Badge variant="outline">
+                        Match: {entry.matchMode || matching.mode}
+                      </Badge>
+                    )}
                     {(entry.food || []).slice(0, 3).map((foodItem) => (
                       <Badge key={foodItem} variant="outline">
                         {foodItem}

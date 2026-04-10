@@ -38,6 +38,9 @@ const EMPTY_OUTLET_FORM = {
   longitude: "",
   longitudeDelta: "0.01",
   address: "",
+  city: "",
+  state: "",
+  pincode: "",
   locationTitle: "",
 };
 
@@ -67,6 +70,9 @@ const mapEntryToForm = (entry: DonorEntry) => ({
       ? String(entry.location.longitudeDelta)
       : "0.01",
   address: entry.location?.address || "",
+  city: entry.location?.city || "",
+  state: entry.location?.state || "",
+  pincode: entry.location?.pincode || "",
   locationTitle: entry.location?.title || "",
 });
 
@@ -84,6 +90,13 @@ const hasPickupLocation = (entry?: DonorEntry | null) => {
 
   return hasCoordinates || hasAddress;
 };
+
+const hasAreaLocation = (entry?: DonorEntry | null) =>
+  Boolean(
+    entry?.location?.pincode ||
+      (entry?.location?.city && entry?.location?.state) ||
+      entry?.location?.city
+  );
 
 const DonorProfileSection = () => {
   const { token } = useAuth();
@@ -141,6 +154,32 @@ const DonorProfileSection = () => {
     setIsSaving(true);
     setMessage(null);
 
+    const latitudeFilled = form.latitude.trim().length > 0;
+    const longitudeFilled = form.longitude.trim().length > 0;
+    const latitude = latitudeFilled ? Number(form.latitude) : undefined;
+    const longitude = longitudeFilled ? Number(form.longitude) : undefined;
+
+    if (latitudeFilled !== longitudeFilled) {
+      setMessage({
+        type: "error",
+        text: "Enter both latitude and longitude together for GPS-based nearby matching.",
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    if (
+      (latitudeFilled && Number.isNaN(latitude)) ||
+      (longitudeFilled && Number.isNaN(longitude))
+    ) {
+      setMessage({
+        type: "error",
+        text: "Latitude and longitude must be valid numbers.",
+      });
+      setIsSaving(false);
+      return;
+    }
+
     const payload = {
       title: form.title.trim(),
       imageUrl: form.imageUrl.trim() || undefined,
@@ -156,38 +195,29 @@ const DonorProfileSection = () => {
       isOpen: form.isOpen,
       location: {
         id: form.locationId.trim() || undefined,
-        latitude: form.latitude ? Number(form.latitude) : undefined,
+        latitude,
         latitudeDelta: form.latitudeDelta
           ? Number(form.latitudeDelta)
           : undefined,
-        longitude: form.longitude ? Number(form.longitude) : undefined,
+        longitude,
         longitudeDelta: form.longitudeDelta
           ? Number(form.longitudeDelta)
           : undefined,
         address: form.address.trim() || undefined,
+        city: form.city.trim() || undefined,
+        state: form.state.trim() || undefined,
+        pincode: form.pincode.trim() || undefined,
         title: form.locationTitle.trim() || undefined,
       },
     };
 
     try {
-      const response = editingEntryId
-        ? await updateDonorEntry(token, editingEntryId, payload)
-        : await createDonorEntry(token, payload);
-
-      const savedEntry = response.doner;
-      setEntries((currentEntries) => {
-        const existingIndex = currentEntries.findIndex(
-          (entry) => entry._id === savedEntry._id,
-        );
-
-        if (existingIndex === -1) {
-          return [savedEntry, ...currentEntries];
-        }
-
-        return currentEntries.map((entry) =>
-          entry._id === savedEntry._id ? savedEntry : entry,
-        );
-      });
+      if (editingEntryId) {
+        await updateDonorEntry(token, editingEntryId, payload);
+      } else {
+        await createDonorEntry(token, payload);
+      }
+      await loadEntries();
       setMessage({
         type: "success",
         text: editingEntryId
@@ -257,7 +287,7 @@ const DonorProfileSection = () => {
           <CardDescription>
             One donor account can manage multiple outlets. Each food item will
             belong to one selected outlet, and NGOs will use that outlet’s pickup
-            location after order acceptance.
+            location for nearby matching and order pickup after acceptance.
           </CardDescription>
         </CardHeader>
 
@@ -280,6 +310,10 @@ const DonorProfileSection = () => {
               {pickupReadyCount} of {entries.length} outlet
               {entries.length === 1 ? "" : "s"} currently have a pickup-ready
               location saved.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add latitude and longitude for GPS matching, or at least save
+              city/state or pincode for area fallback matching.
             </p>
           </div>
 
@@ -434,6 +468,30 @@ const DonorProfileSection = () => {
               />
             </div>
 
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Input
+                value={form.city}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, city: event.target.value }))
+                }
+                placeholder="City"
+              />
+              <Input
+                value={form.state}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, state: event.target.value }))
+                }
+                placeholder="State"
+              />
+              <Input
+                value={form.pincode}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, pincode: event.target.value }))
+                }
+                placeholder="Pincode"
+              />
+            </div>
+
             <Textarea
               className="mt-4"
               value={form.address}
@@ -499,7 +557,14 @@ const DonorProfileSection = () => {
                     </div>
 
                     <p className="text-sm text-muted-foreground">
-                      {entry.location?.address || "No address saved"}
+                      {[
+                        entry.location?.address,
+                        entry.location?.city,
+                        entry.location?.state,
+                        entry.location?.pincode,
+                      ]
+                        .filter(Boolean)
+                        .join(", ") || "No address saved"}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {entry.time || "No time provided"}
@@ -508,6 +573,9 @@ const DonorProfileSection = () => {
                     <div className="flex flex-wrap gap-2">
                       {entry.pickup && <Badge variant="outline">Pickup</Badge>}
                       {entry.delivery && <Badge variant="outline">Delivery</Badge>}
+                      {hasAreaLocation(entry) && (
+                        <Badge variant="outline">Area Ready</Badge>
+                      )}
                       {(entry.food || []).slice(0, 3).map((foodItem) => (
                         <Badge key={foodItem} variant="outline">
                           {foodItem}

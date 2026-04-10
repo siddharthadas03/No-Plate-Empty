@@ -32,6 +32,7 @@ interface AuthContextValue {
   login: (credentials: LoginCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<AuthUser | null>;
+  updateUser: (nextUser: AuthUser) => void;
   clearSession: () => void;
 }
 
@@ -48,10 +49,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(null);
   };
 
+  const updateUser = (nextUser: AuthUser) => {
+    setStoredUser(nextUser);
+    setUser(nextUser);
+  };
+
   const syncUserFromToken = async (tokenToSync: string) => {
     const currentUser = await fetchCurrentUser(tokenToSync);
-    setStoredUser(currentUser);
-    setUser(currentUser);
+    updateUser(currentUser);
     setToken(tokenToSync);
     return currentUser;
   };
@@ -77,9 +82,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        setStoredUser(currentUser);
         setToken(storedToken);
-        setUser(currentUser);
+        updateUser(currentUser);
       } catch {
         if (isActive) {
           clearSession();
@@ -177,6 +181,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         refreshUser,
+        updateUser,
         clearSession,
       }}
     >

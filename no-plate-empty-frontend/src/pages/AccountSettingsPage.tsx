@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
-import { getErrorMessage, getRoleHomePath, getRoleLabel } from "@/lib/auth";
+import { AuthUser, getErrorMessage, getRoleHomePath, getRoleLabel } from "@/lib/auth";
 import {
   deleteCurrentUserAccount,
   resetCurrentUserPassword,
@@ -30,9 +30,56 @@ import {
 
 const DEFAULT_NGO_RADIUS_KM = "10";
 
+const parseOptionalNumber = (value: string) => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return undefined;
+  }
+
+  const numericValue = Number(trimmedValue);
+  return Number.isFinite(numericValue) ? numericValue : Number.NaN;
+};
+
+const mapUserToProfileForm = (user: AuthUser) => ({
+  name: user.name || "",
+  email: user.email || "",
+  address: user.location?.address || "",
+  city: user.location?.city || "",
+  state: user.location?.state || "",
+  pincode: user.location?.pincode || "",
+  latitude:
+    typeof user.location?.latitude === "number" ? String(user.location.latitude) : "",
+  longitude:
+    typeof user.location?.longitude === "number" ? String(user.location.longitude) : "",
+  searchRadiusKm:
+    typeof user.searchRadiusKm === "number"
+      ? String(user.searchRadiusKm)
+      : DEFAULT_NGO_RADIUS_KM,
+});
+
+const getNgoMatchingSummary = (user: AuthUser) => {
+  const hasCoordinates =
+    typeof user.location?.latitude === "number" &&
+    typeof user.location?.longitude === "number";
+  const hasPincode = Boolean(user.location?.pincode?.trim());
+  const hasCityAndState =
+    Boolean(user.location?.city?.trim()) && Boolean(user.location?.state?.trim());
+
+  if (hasCoordinates) {
+    return `GPS matching is active within ${user.searchRadiusKm ?? 10} km of your saved NGO location.`;
+  }
+
+  if (hasPincode || hasCityAndState) {
+    return "Address fallback matching is active. Add latitude and longitude for more accurate nearby results.";
+  }
+
+  return "Save a pincode, city and state, or GPS coordinates to enable nearby donor filtering.";
+};
+
 const AccountSettingsPage = () => {
   const navigate = useNavigate();
-  const { clearSession, logout, refreshUser, token, user } = useAuth();
+  const { clearSession, logout, token, updateUser, user } = useAuth();
   const [profileForm, setProfileForm] = useState({
     name: "",
     email: "",
@@ -72,26 +119,7 @@ const AccountSettingsPage = () => {
       return;
     }
 
-    setProfileForm({
-      name: user.name || "",
-      email: user.email || "",
-      address: user.location?.address || "",
-      city: user.location?.city || "",
-      state: user.location?.state || "",
-      pincode: user.location?.pincode || "",
-      latitude:
-        typeof user.location?.latitude === "number"
-          ? String(user.location.latitude)
-          : "",
-      longitude:
-        typeof user.location?.longitude === "number"
-          ? String(user.location.longitude)
-          : "",
-      searchRadiusKm:
-        typeof user.searchRadiusKm === "number"
-          ? String(user.searchRadiusKm)
-          : DEFAULT_NGO_RADIUS_KM,
-    });
+    setProfileForm(mapUserToProfileForm(user));
   }, [user]);
 
   if (!token || !user) {
@@ -113,6 +141,10 @@ const AccountSettingsPage = () => {
       return;
     }
 
+    const latitude = parseOptionalNumber(profileForm.latitude);
+    const longitude = parseOptionalNumber(profileForm.longitude);
+    const searchRadiusKm = parseOptionalNumber(profileForm.searchRadiusKm);
+
     if (user.role === "NGO") {
       const latitudeFilled = profileForm.latitude.trim().length > 0;
       const longitudeFilled = profileForm.longitude.trim().length > 0;
@@ -125,7 +157,7 @@ const AccountSettingsPage = () => {
         return;
       }
 
-      if (latitudeFilled && Number.isNaN(Number(profileForm.latitude))) {
+      if (Number.isNaN(latitude)) {
         setProfileMessage({
           type: "error",
           text: "Latitude must be a valid number.",
@@ -133,7 +165,7 @@ const AccountSettingsPage = () => {
         return;
       }
 
-      if (longitudeFilled && Number.isNaN(Number(profileForm.longitude))) {
+      if (Number.isNaN(longitude)) {
         setProfileMessage({
           type: "error",
           text: "Longitude must be a valid number.",
@@ -141,10 +173,7 @@ const AccountSettingsPage = () => {
         return;
       }
 
-      if (
-        profileForm.searchRadiusKm.trim().length > 0 &&
-        Number.isNaN(Number(profileForm.searchRadiusKm))
-      ) {
+      if (Number.isNaN(searchRadiusKm)) {
         setProfileMessage({
           type: "error",
           text: "Search radius must be a valid number.",
@@ -157,43 +186,25 @@ const AccountSettingsPage = () => {
     setProfileMessage(null);
 
     try {
-      const ngoProfilePayload =
-        user.role === "NGO"
+      const response = await updateCurrentUser(token, {
+        name: profileForm.name.trim(),
+        email: profileForm.email.trim(),
+        ...(user.role === "NGO"
           ? {
               location: {
                 address: profileForm.address.trim() || undefined,
                 city: profileForm.city.trim() || undefined,
                 state: profileForm.state.trim() || undefined,
                 pincode: profileForm.pincode.trim() || undefined,
-                latitude: profileForm.latitude
-                  ? Number(profileForm.latitude)
-                  : undefined,
-                longitude: profileForm.longitude
-                  ? Number(profileForm.longitude)
-                  : undefined,
+                latitude,
+                longitude,
               },
-              address: profileForm.address.trim() || undefined,
-              city: profileForm.city.trim() || undefined,
-              state: profileForm.state.trim() || undefined,
-              pincode: profileForm.pincode.trim() || undefined,
-              latitude: profileForm.latitude
-                ? Number(profileForm.latitude)
-                : undefined,
-              longitude: profileForm.longitude
-                ? Number(profileForm.longitude)
-                : undefined,
-              searchRadiusKm: profileForm.searchRadiusKm
-                ? Number(profileForm.searchRadiusKm)
-                : undefined,
+              searchRadiusKm,
             }
-          : {};
-
-      const response = await updateCurrentUser(token, {
-        name: profileForm.name.trim(),
-        email: profileForm.email.trim(),
-        ...ngoProfilePayload,
+          : {}),
       });
-      await refreshUser();
+
+      updateUser(response.user);
       setProfileMessage({
         type: "success",
         text: response.message || "Account details updated successfully.",
@@ -315,7 +326,7 @@ const AccountSettingsPage = () => {
           <p className="text-sm uppercase tracking-[0.28em] text-muted-foreground">
             Account Settings
           </p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight font-display text-foreground sm:text-5xl">
+          <h1 className="mt-4 font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
             Manage your profile, password, and account access.
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
@@ -392,9 +403,10 @@ const AccountSettingsPage = () => {
                       NGO Matching Location
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Save your main coordination address and map location to
-                      improve nearby outlet matching.
+                      Save your coordination address and GPS details so the platform
+                      can filter donor outlets near your NGO.
                     </p>
+                    <p className="text-sm text-primary">{getNgoMatchingSummary(user)}</p>
                   </div>
 
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -424,7 +436,7 @@ const AccountSettingsPage = () => {
                             city: event.target.value,
                           }))
                         }
-                        placeholder="Kolkata"
+                        placeholder="Bankura"
                       />
                     </div>
 
@@ -454,7 +466,7 @@ const AccountSettingsPage = () => {
                             pincode: event.target.value,
                           }))
                         }
-                        placeholder="700001"
+                        placeholder="722140"
                       />
                     </div>
 
@@ -462,6 +474,9 @@ const AccountSettingsPage = () => {
                       <Label htmlFor="settings-radius">Search Radius (km)</Label>
                       <Input
                         id="settings-radius"
+                        type="number"
+                        min="1"
+                        max="100"
                         value={profileForm.searchRadiusKm}
                         onChange={(event) =>
                           setProfileForm((current) => ({
@@ -477,6 +492,8 @@ const AccountSettingsPage = () => {
                       <Label htmlFor="settings-latitude">Latitude</Label>
                       <Input
                         id="settings-latitude"
+                        type="number"
+                        step="any"
                         value={profileForm.latitude}
                         onChange={(event) =>
                           setProfileForm((current) => ({
@@ -492,6 +509,8 @@ const AccountSettingsPage = () => {
                       <Label htmlFor="settings-longitude">Longitude</Label>
                       <Input
                         id="settings-longitude"
+                        type="number"
+                        step="any"
                         value={profileForm.longitude}
                         onChange={(event) =>
                           setProfileForm((current) => ({
@@ -523,35 +542,35 @@ const AccountSettingsPage = () => {
                 Your current account identity, access status, and saved workspace
                 details.
               </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Signed In As
-              </p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {user.name}
-              </p>
-              <p className="text-muted-foreground">{user.email}</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-border/60 p-4">
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Role
+                  Signed In As
                 </p>
-                <p className="mt-2 text-lg font-semibold text-foreground">
-                  {getRoleLabel(user.role)}
-                </p>
+                <p className="mt-2 text-lg font-semibold text-foreground">{user.name}</p>
+                <p className="text-muted-foreground">{user.email}</p>
               </div>
-              <div className="rounded-2xl border border-border/60 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Status
-                </p>
-                <p className="mt-2 font-semibold text-foreground">
-                  {user.isBlocked ? "Blocked" : "Active"}
-                </p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-border/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Role
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {getRoleLabel(user.role)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Status
+                  </p>
+                  <p className="mt-2 font-semibold text-foreground">
+                    {user.isBlocked ? "Blocked" : "Active"}
+                  </p>
+                </div>
               </div>
-            </div>
+
               {user.role === "NGO" && (
                 <div className="rounded-2xl border border-border/60 p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
@@ -559,6 +578,11 @@ const AccountSettingsPage = () => {
                   </p>
                   <p className="mt-2 font-semibold text-foreground">
                     {user.location?.address || "Location not saved yet"}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    {[user.location?.city, user.location?.state, user.location?.pincode]
+                      .filter(Boolean)
+                      .join(", ") || "No city, state, or pincode saved yet"}
                   </p>
                   <p className="mt-1 text-muted-foreground">
                     Radius: {user.searchRadiusKm ?? 10} km

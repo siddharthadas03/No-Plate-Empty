@@ -1,641 +1,612 @@
-import { useEffect, useState } from "react";
-import {
-  PackageOpen,
-  PencilLine,
-  RefreshCw,
-  Store,
-  Trash2,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { PencilLine, Plus, Trash2 } from "lucide-react";
+import { API } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/context/AuthContext";
-import { getErrorMessage } from "@/lib/auth";
-import {
-  Category,
-  DonorEntry,
-  FoodItem,
-  createFood,
-  deleteFood,
-  getCategories,
-  getMyDonorEntries,
-  getMyFoods,
-  updateFood,
-} from "@/lib/feature-api";
 
-const EMPTY_FOOD_FORM = {
-  outletId: "",
+type DonorOutlet = {
+  _id: string;
+  title: string;
+  isOpen?: boolean;
+};
+
+type Category = {
+  _id: string;
+  title: string;
+};
+
+type FoodRecord = {
+  _id: string;
+  title: string;
+  decription?: string;
+  imageUrl?: string;
+  foodTags?: string;
+  catagory?: string;
+  code?: string;
+  quantity?: number;
+  unit?: string;
+  isAvailable?: boolean;
+  expireTime?: string;
+  Doner?: DonorOutlet | string | null;
+  updatedAt?: string;
+};
+
+type FoodFormState = {
+  title: string;
+  description: string;
+  category: string;
+  code: string;
+  quantity: string;
+  unit: string;
+  foodTags: string;
+  imageUrl: string;
+  expireTime: string;
+  outletId: string;
+  isAvailable: boolean;
+};
+
+const createEmptyForm = (): FoodFormState => ({
   title: "",
   description: "",
-  imageUrl: "",
-  foodTags: "",
   category: "",
   code: "",
+  quantity: "",
+  unit: "plates",
+  foodTags: "",
+  imageUrl: "",
   expireTime: "",
+  outletId: "",
   isAvailable: true,
+});
+
+const getAuthHeaders = (token: string | null, hasBody = false) => {
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (hasBody) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  return headers;
 };
 
-const formatDateTimeInput = (value?: string) => {
+const formatQuantity = (quantity?: number, unit?: string) => {
+  if (typeof quantity !== "number") {
+    return "Quantity not set";
+  }
+
+  return `${quantity} ${unit?.trim() || "items"}`;
+};
+
+const toDateTimeLocalValue = (value?: string) => {
   if (!value) {
     return "";
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
     return "";
   }
 
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
+  const local = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 };
 
-const formatDisplayDate = (value?: string) => {
-  if (!value) {
-    return "Not set";
-  }
+const getOutletId = (food: FoodRecord) =>
+  typeof food.Doner === "string" ? food.Doner : food.Doner?._id || "";
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString();
-};
-
-const getOutletId = (food: FoodItem) => {
-  if (!food.Doner) {
-    return "";
-  }
-
-  return typeof food.Doner === "string" ? food.Doner : food.Doner._id || "";
-};
-
-const getOutletTitle = (food: FoodItem) => {
-  if (!food.Doner) {
-    return "Unknown outlet";
-  }
-
-  if (typeof food.Doner === "string") {
-    return food.Doner;
-  }
-
-  return food.Doner.title || food.Doner.location?.title || "Unnamed outlet";
-};
+const getOutletLabel = (food: FoodRecord) =>
+  typeof food.Doner === "string" ? "Linked outlet" : food.Doner?.title || "Outlet";
 
 const FoodManagerSection = () => {
-  const { token, user } = useAuth();
-  const [foods, setFoods] = useState<FoodItem[]>([]);
+  const { token } = useAuth();
+  const [foods, setFoods] = useState<FoodRecord[]>([]);
+  const [outlets, setOutlets] = useState<DonorOutlet[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [outlets, setOutlets] = useState<DonorEntry[]>([]);
-  const [form, setForm] = useState(EMPTY_FOOD_FORM);
+  const [form, setForm] = useState<FoodFormState>(createEmptyForm);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [pendingFoodId, setPendingFoodId] = useState<string | null>(null);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const loadData = async (showRefreshState = false) => {
+  const categoryOptions = useMemo(
+    () => categories.map((category) => category.title),
+    [categories]
+  );
+
+  const loadData = async () => {
     if (!token) {
+      setError("Sign in again to manage foods.");
+      setIsLoading(false);
       return;
     }
 
-    if (showRefreshState) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
+    setIsLoading(true);
+    setError("");
 
     try {
-      const [foodsResponse, categoriesResponse, outletsResponse] = await Promise.all([
-        getMyFoods(token),
-        getCategories(),
-        getMyDonorEntries(token),
+      const [foodsResponse, outletsResponse, categoriesResponse] = await Promise.all([
+        fetch(`${API}/api/v1/food/my-foods`, {
+          headers: getAuthHeaders(token),
+        }),
+        fetch(`${API}/api/v1/Doner/my-records`, {
+          headers: getAuthHeaders(token),
+        }),
+        fetch(`${API}/api/v1/category/getAll`, {
+          headers: getAuthHeaders(token),
+        }),
       ]);
 
-      setFoods(Array.isArray(foodsResponse.foods) ? foodsResponse.foods : []);
-      setCategories(
-        Array.isArray(categoriesResponse.categories)
-          ? categoriesResponse.categories
-          : [],
-      );
-      setOutlets(
-        Array.isArray(outletsResponse.Doners) ? outletsResponse.Doners : [],
-      );
-      setMessage(null);
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: getErrorMessage(error, "Unable to load donor foods and outlets."),
-      });
-    } finally {
-      if (showRefreshState) {
-        setIsRefreshing(false);
-      } else {
-        setIsLoading(false);
+      const [foodsPayload, outletsPayload, categoriesPayload] = await Promise.all([
+        foodsResponse.json().catch(() => ({})),
+        outletsResponse.json().catch(() => ({})),
+        categoriesResponse.json().catch(() => ({})),
+      ]);
+
+      if (!foodsResponse.ok) {
+        throw new Error(foodsPayload?.message || "Unable to load foods.");
       }
+
+      if (!outletsResponse.ok) {
+        throw new Error(outletsPayload?.message || "Unable to load donor outlets.");
+      }
+
+      setFoods(Array.isArray(foodsPayload?.foods) ? foodsPayload.foods : []);
+      setOutlets(Array.isArray(outletsPayload?.Doners) ? outletsPayload.Doners : []);
+      setCategories(
+        Array.isArray(categoriesPayload?.categories) ? categoriesPayload.categories : []
+      );
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load food manager data."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!token || !user) {
-      return;
-    }
-
     void loadData();
-  }, [token, user?._id]);
+  }, [token]);
 
-  if (!token || !user) {
-    return (
-      <Card className="border-border/60 bg-background/92 shadow-lg">
-        <CardContent className="py-10 text-sm text-muted-foreground">
-          Your donor session is loading. Open the food tab again in a moment.
-        </CardContent>
-      </Card>
-    );
-  }
+  useEffect(() => {
+    if (!form.outletId && outlets.length > 0) {
+      setForm((currentForm) => ({
+        ...currentForm,
+        outletId: currentForm.outletId || outlets[0]._id,
+      }));
+    }
+  }, [outlets, form.outletId]);
 
   const resetForm = () => {
     setEditingFoodId(null);
-    setForm(EMPTY_FOOD_FORM);
+    setForm({
+      ...createEmptyForm(),
+      outletId: outlets[0]?._id || "",
+    });
   };
 
-  const validateForm = () => {
-    if (!form.outletId.trim()) {
-      return "Choose the outlet that owns this food.";
-    }
-
-    if (!form.title.trim()) {
-      return "Food title is required.";
-    }
-
-    if (!form.description.trim()) {
-      return "Food description is required.";
-    }
-
-    if (!form.category.trim()) {
-      return "Category is required.";
-    }
-
-    if (!form.code.trim()) {
-      return "Food code is required.";
-    }
-
-    return null;
+  const handleChange = <K extends keyof FoodFormState>(
+    field: K,
+    value: FoodFormState[K]
+  ) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+    }));
   };
 
-  const handleSave = async () => {
-    const validationMessage = validateForm();
-    if (validationMessage) {
-      setMessage({ type: "error", text: validationMessage });
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!token) {
+      setError("Sign in again to manage foods.");
       return;
     }
 
-    setIsSaving(true);
-    setMessage(null);
+    const parsedQuantity = Number(form.quantity);
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      setError("Enter a valid quantity greater than zero.");
+      return;
+    }
 
-    const payload = {
-      outlet: form.outletId,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      imageUrl: form.imageUrl.trim() || undefined,
-      foodTags: form.foodTags.trim() || undefined,
-      category: form.category.trim(),
-      code: form.code.trim(),
-      isAvailable: form.isAvailable,
-      expireTime: form.expireTime
-        ? new Date(form.expireTime).toISOString()
-        : undefined,
-    };
+    if (!form.outletId) {
+      setError("Create a donor outlet before adding foods.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
 
     try {
-      if (editingFoodId) {
-        const response = await updateFood(token, editingFoodId, payload);
-        setFoods((currentFoods) =>
-          currentFoods.map((food) =>
-            food._id === editingFoodId ? response.food : food,
-          ),
+      const payload = {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        category: form.category.trim(),
+        code: form.code.trim(),
+        quantity: parsedQuantity,
+        unit: form.unit.trim() || "items",
+        foodTags: form.foodTags.trim(),
+        imageUrl: form.imageUrl.trim(),
+        expireTime: form.expireTime || undefined,
+        outletId: form.outletId,
+        isAvailable: form.isAvailable,
+      };
+
+      const response = await fetch(
+        editingFoodId
+          ? `${API}/api/v1/food/update/${editingFoodId}`
+          : `${API}/api/v1/food/create`,
+        {
+          method: editingFoodId ? "PUT" : "POST",
+          headers: getAuthHeaders(token, true),
+          body: JSON.stringify(payload),
+        }
+      );
+      const responsePayload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          responsePayload?.message ||
+            (editingFoodId ? "Unable to update food." : "Unable to create food.")
         );
-        setMessage({ type: "success", text: "Food updated successfully." });
-      } else {
-        const response = await createFood(token, payload);
-        setFoods((currentFoods) => [response.food, ...currentFoods]);
-        setMessage({ type: "success", text: "Food created successfully." });
       }
 
+      setSuccess(
+        responsePayload?.message ||
+          (editingFoodId ? "Food updated successfully." : "Food created successfully.")
+      );
       resetForm();
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: getErrorMessage(error, "Unable to save food."),
-      });
+      await loadData();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to save food right now."
+      );
     } finally {
-      setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleEdit = (food: FoodItem) => {
+  const handleEdit = (food: FoodRecord) => {
     setEditingFoodId(food._id);
+    setError("");
+    setSuccess("");
     setForm({
-      outletId: getOutletId(food),
       title: food.title || "",
       description: food.decription || "",
-      imageUrl: food.imageUrl || "",
-      foodTags: food.foodTags || "",
       category: food.catagory || "",
       code: food.code || "",
-      expireTime: formatDateTimeInput(food.expireTime),
-      isAvailable: Boolean(food.isAvailable),
+      quantity:
+        typeof food.quantity === "number" && !Number.isNaN(food.quantity)
+          ? String(food.quantity)
+          : "",
+      unit: food.unit || "items",
+      foodTags: food.foodTags || "",
+      imageUrl: food.imageUrl || "",
+      expireTime: toDateTimeLocalValue(food.expireTime),
+      outletId: getOutletId(food),
+      isAvailable: food.isAvailable !== false,
     });
-    setMessage(null);
-  };
-
-  const handleToggleAvailability = async (food: FoodItem) => {
-    setPendingFoodId(food._id);
-    setMessage(null);
-
-    try {
-      const response = await updateFood(token, food._id, {
-        isAvailable: !food.isAvailable,
-      });
-      setFoods((currentFoods) =>
-        currentFoods.map((currentFood) =>
-          currentFood._id === food._id ? response.food : currentFood,
-        ),
-      );
-      setMessage({ type: "success", text: "Food availability updated." });
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: getErrorMessage(error, "Unable to update food availability."),
-      });
-    } finally {
-      setPendingFoodId(null);
-    }
   };
 
   const handleDelete = async (foodId: string) => {
-    setPendingFoodId(foodId);
-    setMessage(null);
+    if (!token) {
+      setError("Sign in again to manage foods.");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
 
     try {
-      await deleteFood(token, foodId);
-      setFoods((currentFoods) =>
-        currentFoods.filter((food) => food._id !== foodId),
-      );
+      const response = await fetch(`${API}/api/v1/food/delete/${foodId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(token),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.message || "Unable to delete food.");
+      }
+
+      setSuccess(payload?.message || "Food deleted successfully.");
       if (editingFoodId === foodId) {
         resetForm();
       }
-      setMessage({ type: "success", text: "Food deleted successfully." });
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: getErrorMessage(error, "Unable to delete food."),
-      });
-    } finally {
-      setPendingFoodId(null);
+      await loadData();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to delete food right now."
+      );
     }
   };
 
-  const selectedOutlet = outlets.find((outlet) => outlet._id === form.outletId);
-
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-      <Card className="border-border/60 bg-background/92 shadow-lg">
-        <CardHeader className="space-y-4">
+    <section className="space-y-6">
+      <div className="rounded-3xl border border-border/60 bg-background/95 p-6 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <PackageOpen className="h-5 w-5 text-primary" />
-              {editingFoodId ? "Edit Food" : "Create Food"}
-            </CardTitle>
-            <CardDescription>
-              Each food now belongs to one donor outlet. Choose the outlet first,
-              then save the food under that outlet.
-            </CardDescription>
-          </div>
-
-          {message && (
-            <div
-              className={`rounded-2xl border px-4 py-3 text-sm ${
-                message.type === "success"
-                  ? "border-green-200 bg-green-50 text-green-700"
-                  : "border-red-200 bg-red-50 text-red-700"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {outlets.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
-              Create a donor outlet in the Donor Details tab before adding food.
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label>Outlet</Label>
-                <div className="flex flex-wrap gap-2">
-                  {outlets.map((outlet) => (
-                    <Button
-                      key={outlet._id}
-                      type="button"
-                      variant={form.outletId === outlet._id ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() =>
-                        setForm((current) => ({ ...current, outletId: outlet._id }))
-                      }
-                    >
-                      <Store className="mr-2 h-4 w-4" />
-                      {outlet.title}
-                    </Button>
-                  ))}
-                </div>
-                {selectedOutlet && (
-                  <p className="text-sm text-muted-foreground">
-                    Pickup from:{" "}
-                    {selectedOutlet.location?.address || "No address saved"}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="food-title">Food Title</Label>
-                <Input
-                  id="food-title"
-                  value={form.title}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, title: event.target.value }))
-                  }
-                  placeholder="Veg Meal Pack"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="food-description">Description</Label>
-                <Textarea
-                  id="food-description"
-                  value={form.description}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                  placeholder="Fresh cooked veg meal"
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="food-category">Category</Label>
-                  <Input
-                    id="food-category"
-                    value={form.category}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        category: event.target.value,
-                      }))
-                    }
-                    placeholder={categories[0]?.title || "Vegetarian"}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="food-code">Food Code</Label>
-                  <Input
-                    id="food-code"
-                    value={form.code}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, code: event.target.value }))
-                    }
-                    placeholder="FOOD1001"
-                  />
-                </div>
-              </div>
-
-              {categories.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">
-                    Available Categories
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map((category) => (
-                      <Button
-                        key={category._id}
-                        type="button"
-                        variant={
-                          form.category === category.title ? "secondary" : "outline"
-                        }
-                        size="sm"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            category: category.title,
-                          }))
-                        }
-                      >
-                        {category.title}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="food-image">Image URL</Label>
-                  <Input
-                    id="food-image"
-                    value={form.imageUrl}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        imageUrl: event.target.value,
-                      }))
-                    }
-                    placeholder="https://example.com/food.jpg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="food-tags">Food Tags</Label>
-                  <Input
-                    id="food-tags"
-                    value={form.foodTags}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        foodTags: event.target.value,
-                      }))
-                    }
-                    placeholder="meal, rice, bread"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="food-expire-time">Expire Time</Label>
-                  <Input
-                    id="food-expire-time"
-                    type="datetime-local"
-                    value={form.expireTime}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        expireTime: event.target.value,
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Availability</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={form.isAvailable ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() =>
-                        setForm((current) => ({ ...current, isAvailable: true }))
-                      }
-                    >
-                      Available
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={!form.isAvailable ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() =>
-                        setForm((current) => ({ ...current, isAvailable: false }))
-                      }
-                    >
-                      Unavailable
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Button onClick={() => void handleSave()} disabled={isSaving}>
-                  {isSaving
-                    ? "Saving..."
-                    : editingFoodId
-                      ? "Update Food"
-                      : "Create Food"}
-                </Button>
-                {editingFoodId && (
-                  <Button variant="outline" onClick={resetForm}>
-                    Cancel Edit
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/60 bg-background/92 shadow-lg">
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle>Your Foods</CardTitle>
-            <CardDescription>
-              These foods are grouped under the donor outlets owned by your
-              account.
-            </CardDescription>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading donor foods...</p>
-          ) : foods.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
-              No foods found for your outlets yet. Create your first food item here.
+            <h2 className="text-2xl font-semibold text-foreground">
+              Food Inventory
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Add available quantity and units so NGOs know exactly what each
+              listing offers.
             </p>
-          ) : (
-            foods.map((food) => (
-              <div
-                key={food._id}
-                className="rounded-2xl border border-border/60 bg-muted/20 p-4"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-lg font-semibold text-foreground">
-                        {food.title}
-                      </p>
-                      <Badge variant={food.isAvailable ? "secondary" : "outline"}>
-                        {food.isAvailable ? "Available" : "Unavailable"}
-                      </Badge>
-                      <Badge variant="outline">{getOutletTitle(food)}</Badge>
-                    </div>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {food.decription || "No description saved"}
-                    </p>
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {food.catagory && <span>Category: {food.catagory}</span>}
-                      {food.code && <span>Code: {food.code}</span>}
-                      <span>Expires: {formatDisplayDate(food.expireTime)}</span>
-                    </div>
-                  </div>
+          </div>
+          <Badge variant="secondary">{foods.length} listing(s)</Badge>
+        </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(food)}
-                    >
-                      <PencilLine className="mr-2 h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleToggleAvailability(food)}
-                      disabled={pendingFoodId === food._id}
-                    >
-                      {food.isAvailable ? "Mark Unavailable" : "Mark Available"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleDelete(food._id)}
-                      disabled={pendingFoodId === food._id}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </Button>
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        {success ? (
+          <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {success}
+          </div>
+        ) : null}
+
+        <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Food title</span>
+              <Input
+                value={form.title}
+                onChange={(event) => handleChange("title", event.target.value)}
+                placeholder="Vegetable biryani"
+                required
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Category</span>
+              <Input
+                value={form.category}
+                onChange={(event) => handleChange("category", event.target.value)}
+                placeholder="Cooked meals"
+                list="food-category-options"
+                required
+              />
+              <datalist id="food-category-options">
+                {categoryOptions.map((categoryOption) => (
+                  <option key={categoryOption} value={categoryOption} />
+                ))}
+              </datalist>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Food code</span>
+              <Input
+                value={form.code}
+                onChange={(event) => handleChange("code", event.target.value)}
+                placeholder="FD-101"
+                required
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Outlet</span>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.outletId}
+                onChange={(event) => handleChange("outletId", event.target.value)}
+                required
+              >
+                <option value="">Select outlet</option>
+                {outlets.map((outlet) => (
+                  <option key={outlet._id} value={outlet._id}>
+                    {outlet.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Quantity</span>
+              <Input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={form.quantity}
+                onChange={(event) => handleChange("quantity", event.target.value)}
+                placeholder="25"
+                required
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Unit</span>
+              <Input
+                value={form.unit}
+                onChange={(event) => handleChange("unit", event.target.value)}
+                placeholder="plates / kg / packets"
+                required
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Tags</span>
+              <Input
+                value={form.foodTags}
+                onChange={(event) => handleChange("foodTags", event.target.value)}
+                placeholder="veg, fresh, dinner"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">
+                Expiry / pickup cut-off
+              </span>
+              <Input
+                type="datetime-local"
+                value={form.expireTime}
+                onChange={(event) => handleChange("expireTime", event.target.value)}
+              />
+            </label>
+
+            <label className="space-y-2 md:col-span-2">
+              <span className="text-sm font-medium text-foreground">Image URL</span>
+              <Input
+                value={form.imageUrl}
+                onChange={(event) => handleChange("imageUrl", event.target.value)}
+                placeholder="https://..."
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Availability</span>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.isAvailable ? "available" : "unavailable"}
+                onChange={(event) =>
+                  handleChange("isAvailable", event.target.value === "available")
+                }
+              >
+                <option value="available">Available</option>
+                <option value="unavailable">Unavailable</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-foreground">Description</span>
+            <textarea
+              className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.description}
+              onChange={(event) => handleChange("description", event.target.value)}
+              placeholder="Describe the food, packaging, dietary notes, and pickup readiness."
+              required
+            />
+          </label>
+
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" disabled={isSubmitting || outlets.length === 0}>
+              {editingFoodId ? (
+                <>
+                  <PencilLine className="mr-2 h-4 w-4" />
+                  {isSubmitting ? "Updating..." : "Update Food"}
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {isSubmitting ? "Creating..." : "Add Food"}
+                </>
+              )}
+            </Button>
+
+            {editingFoodId ? (
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Cancel Edit
+              </Button>
+            ) : null}
+
+            {outlets.length === 0 ? (
+              <p className="self-center text-sm text-muted-foreground">
+                Create a donor outlet first, then come back here to publish foods.
+              </p>
+            ) : null}
+          </div>
+        </form>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {isLoading ? (
+          <div className="rounded-3xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground xl:col-span-2">
+            Loading your food listings...
+          </div>
+        ) : foods.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center xl:col-span-2">
+            <p className="font-medium text-foreground">No foods published yet</p>
+            <p className="text-sm text-muted-foreground">
+              Add your first listing with quantity and unit details so NGOs can
+              request the right amount.
+            </p>
+          </div>
+        ) : (
+          foods.map((food) => (
+            <article
+              key={food._id}
+              className="rounded-3xl border border-border/60 bg-background/95 p-5 shadow-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {food.title}
+                    </h3>
+                    <Badge variant={food.isAvailable === false ? "outline" : "secondary"}>
+                      {food.isAvailable === false ? "Unavailable" : "Available"}
+                    </Badge>
                   </div>
+                  <p className="text-sm text-muted-foreground">
+                    {food.decription || "No description added yet."}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => handleEdit(food)}>
+                    <PencilLine className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleDelete(food._id)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
                 </div>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge variant="secondary">{formatQuantity(food.quantity, food.unit)}</Badge>
+                {food.catagory ? <Badge variant="outline">{food.catagory}</Badge> : null}
+                {food.foodTags ? <Badge variant="outline">{food.foodTags}</Badge> : null}
+                <Badge variant="outline">{getOutletLabel(food)}</Badge>
+              </div>
+
+              <div className="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
+                <p>
+                  <span className="font-medium text-foreground">Code:</span>{" "}
+                  {food.code || "Not set"}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">Expiry:</span>{" "}
+                  {food.expireTime
+                    ? new Date(food.expireTime).toLocaleString()
+                    : "Not set"}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">Outlet:</span>{" "}
+                  {getOutletLabel(food)}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">Last updated:</span>{" "}
+                  {food.updatedAt ? new Date(food.updatedAt).toLocaleString() : "Recently"}
+                </p>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
   );
 };
 
