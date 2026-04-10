@@ -1,0 +1,583 @@
+{
+  "info": {
+    "_postman_id": "2d40d35a-95e1-4b7f-9d6b-1f8d8c95a001",
+    "name": "NoPlateEmpty Backend APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 Auth",
+      "item": [
+        {
+          "name": "Register SUPER_ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Main Admin\",\n  \"email\": \"admin1@example.com\",\n  \"password\": \"Admin@123\",\n  \"role\": \"SUPER_ADMIN\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login SUPER_ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.environment.set(\"superAdminToken\", json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin1@example.com\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Register DONOR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.userId) pm.environment.set(\"donorUserId\", json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Donor User\",\n  \"email\": \"donor1@example.com\",\n  \"password\": \"Donor@123\",\n  \"role\": \"DONOR\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Register NGO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.userId) pm.environment.set(\"ngoUserId\", json.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"NGO User\",\n  \"email\": \"ngo1@example.com\",\n  \"password\": \"Ngo@123\",\n  \"role\": \"NGO\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login DONOR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.environment.set(\"donorToken\", json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"donor1@example.com\",\n  \"password\": \"Donor@123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login NGO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.environment.set(\"ngoToken\", json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ngo1@example.com\",\n  \"password\": \"Ngo@123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Admin",
+      "item": [
+        {
+          "name": "Get Pending Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{superAdminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/pending-users"
+          }
+        },
+        {
+          "name": "Approve DONOR",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{superAdminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/approve/{{donorUserId}}"
+          }
+        },
+        {
+          "name": "Approve NGO",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{superAdminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/admin/approve/{{ngoUserId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Category",
+      "item": [
+        {
+          "name": "Create Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.newCategory && json.newCategory._id) pm.environment.set(\"categoryId\", json.newCategory._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Vegetarian\",\n  \"imageUrl\": \"https://example.com/category.jpg\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/category/create"
+          }
+        },
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/category/getAll"
+          }
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Vegetarian Updated\",\n  \"imageUrl\": \"https://example.com/category-updated.jpg\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/category/update/{{categoryId}}"
+          }
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/category/delete/{{categoryId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Doner",
+      "item": [
+        {
+          "name": "Create Doner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.doner && json.doner._id) pm.environment.set(\"donerEntryId\", json.doner._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Downtown Doner\",\n  \"imageUrl\": \"https://example.com/doner.jpg\",\n  \"food\": [],\n  \"time\": \"09:00-21:00\",\n  \"pickup\": true,\n  \"delivery\": true,\n  \"isOpen\": true,\n  \"location\": {\n    \"id\": \"loc-01\",\n    \"latitude\": 22.5726,\n    \"latitudeDelta\": 0.01,\n    \"longitude\": 88.3639,\n    \"longitudeDelta\": 0.01,\n    \"address\": \"Kolkata\",\n    \"title\": \"Main Branch\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/Doner/create"
+          }
+        },
+        {
+          "name": "Get All Doners",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/Doner/get-all-Doners"
+          }
+        },
+        {
+          "name": "Get Single Doner",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/Doner/get/{{donerEntryId}}"
+          }
+        },
+        {
+          "name": "Delete Doner",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/Doner/delete/{{donerEntryId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Food",
+      "item": [
+        {
+          "name": "Create Food 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.food && json.food._id) pm.environment.set(\"foodId1\", json.food._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Veg Meal Pack\",\n  \"description\": \"Fresh cooked veg meal\",\n  \"imageUrl\": \"https://example.com/food1.jpg\",\n  \"foodTags\": \"veg,meal\",\n  \"category\": \"Vegetarian\",\n  \"code\": \"FOOD1001\",\n  \"isAvailable\": true,\n  \"doner\": \"{{donorUserId}}\",\n  \"expireTime\": \"2026-12-31T18:00:00.000Z\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/food/create"
+          }
+        },
+        {
+          "name": "Create Food 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.food && json.food._id) pm.environment.set(\"foodId2\", json.food._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Rice and Dal\",\n  \"description\": \"High nutrition meal\",\n  \"imageUrl\": \"https://example.com/food2.jpg\",\n  \"foodTags\": \"rice,dal\",\n  \"category\": \"Cooked\",\n  \"code\": \"FOOD1002\",\n  \"isAvailable\": true,\n  \"doner\": \"{{donorUserId}}\",\n  \"expireTime\": \"2026-12-31T21:00:00.000Z\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/food/create"
+          }
+        },
+        {
+          "name": "Get All Foods",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/food/get-all-food"
+          }
+        },
+        {
+          "name": "Get Single Food",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/food/get/{{foodId1}}"
+          }
+        },
+        {
+          "name": "Get Food By Doner",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/food/get-by-doner/{{donorUserId}}"
+          }
+        },
+        {
+          "name": "Update Food",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Veg Meal Pack Updated\",\n  \"isAvailable\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/food/update/{{foodId1}}"
+          }
+        },
+        {
+          "name": "Delete Food (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/food/delete/{{foodId2}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Orders",
+      "item": [
+        {
+          "name": "Place Order (NGO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.order && json.order._id) pm.environment.set(\"orderId\", json.order._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ngoToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartItems\": [\"{{foodId1}}\"]\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/food/place-order"
+          }
+        },
+        {
+          "name": "Get My Orders (NGO)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ngoToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/food/my-orders"
+          }
+        },
+        {
+          "name": "Update Order Status -> accepted",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/food/order-status/{{orderId}}"
+          }
+        },
+        {
+          "name": "Update Order Status -> completed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{donorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/food/order-status/{{orderId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

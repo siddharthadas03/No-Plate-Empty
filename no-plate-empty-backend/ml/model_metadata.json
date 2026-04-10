@@ -1,0 +1,32 @@
+{
+  "feature_columns": [
+    "day",
+    "weekday",
+    "meal_type",
+    "menu",
+    "hostel"
+  ],
+  "category_mappings": {
+    "meal_type": {
+      "breakfast": 0,
+      "dinner": 1,
+      "lunch": 2
+    },
+    "menu": {
+      "idli_sambar": 0,
+      "poha": 1,
+      "rice_dal": 2,
+      "roti_sabji": 3,
+      "veg_pulao": 4
+    },
+    "hostel": {
+      "A": 0,
+      "B": 1
+    }
+  },
+  "surplus_labels": [
+    "Low",
+    "Medium",
+    "High"
+  ]
+}
