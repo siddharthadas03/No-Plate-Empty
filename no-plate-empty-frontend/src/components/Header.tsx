@@ -133,7 +133,7 @@ const Header = ({ onOpenDonor, onOpenRecipient }: HeaderProps) => {
                           Donor
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          I want to give food
+                          I manage campus surplus
                         </span>
                       </div>
                     </DropdownMenuItem>
@@ -147,7 +147,7 @@ const Header = ({ onOpenDonor, onOpenRecipient }: HeaderProps) => {
                           Recipient
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          I am looking for food
+                          I collect college food
                         </span>
                       </div>
                     </DropdownMenuItem>

@@ -1,46 +1,53 @@
-import { Store, Utensils, Calendar, ShoppingBag, Apple, Cake } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  GraduationCap,
+  School,
+  Users,
+  Utensils,
+} from "lucide-react";
 
 const categories = [
   {
     icon: Utensils,
-    name: "Restaurants",
-    description: "Fresh prepared meals & ingredients",
-    count: "1,200+",
+    name: "Hostel Mess Food",
+    description: "Breakfast, lunch, dinner, and bulk meal surplus",
+    source: "Hostel blocks",
     color: "from-primary to-primary/80",
   },
   {
-    icon: Store,
-    name: "Grocery Stores",
-    description: "Produce, dairy, and packaged goods",
-    count: "800+",
+    icon: School,
+    name: "College Cafeteria",
+    description: "Canteen meals, snacks, and beverages near closing time",
+    source: "Campus canteens",
     color: "from-secondary to-secondary/80",
   },
   {
-    icon: Calendar,
-    name: "Events & Catering",
-    description: "Surplus from events and parties",
-    count: "500+",
+    icon: CalendarDays,
+    name: "College Events",
+    description: "Surplus from seminars, fests, workshops, and sports days",
+    source: "Event teams",
     color: "from-primary to-secondary",
   },
   {
-    icon: Apple,
-    name: "Farms & Producers",
-    description: "Fresh harvested produce",
-    count: "350+",
+    icon: Building2,
+    name: "Department Programs",
+    description: "Food left after department meets and guest lectures",
+    source: "Departments",
     color: "from-leaf to-primary",
   },
   {
-    icon: ShoppingBag,
-    name: "Bakeries & Cafes",
-    description: "Breads, pastries, and coffee",
-    count: "600+",
+    icon: Users,
+    name: "Student Clubs",
+    description: "Club drives, NSS units, and campus volunteer groups",
+    source: "Student teams",
     color: "from-carrot to-secondary",
   },
   {
-    icon: Cake,
-    name: "Food Manufacturers",
-    description: "Packaged and processed foods",
-    count: "200+",
+    icon: GraduationCap,
+    name: "Campus Kitchens",
+    description: "Prepared batches from college kitchens and food labs",
+    source: "Kitchen teams",
     color: "from-primary to-secondary/70",
   },
 ];
@@ -52,13 +59,13 @@ const FoodCategories = () => {
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-secondary font-semibold text-sm uppercase tracking-wider mb-4 block">
-            Food Sources
+            Campus Food Sources
           </span>
           <h2 className="text-3xl md:text-5xl font-display font-bold text-foreground mb-4">
-            Donations from Every Sector
+            College Food Donation Only
           </h2>
           <p className="text-muted-foreground text-lg">
-            We partner with businesses across the food industry to rescue quality food before it goes to waste.
+            Food listings focus on hostel messes, college cafeterias, and campus events so surplus can be collected fast and managed inside the college network.
           </p>
         </div>
 
@@ -86,7 +93,7 @@ const FoodCategories = () => {
                 </p>
 
                 <div className="text-sm font-semibold text-secondary group-hover:text-primary-foreground transition-colors duration-300">
-                  {category.count} active donors
+                  {category.source}
                 </div>
               </div>
             </div>

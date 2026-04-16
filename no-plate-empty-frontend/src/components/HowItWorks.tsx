@@ -4,19 +4,19 @@ const steps = [
   {
     icon: Package,
     title: "List Surplus Food",
-    description: "Restaurants and stores easily list their excess food with photos, quantity, and pickup times.",
+    description: "Hostel messes, cafeterias, and event teams list extra food with quantity, pickup point, and expiry time.",
     color: "bg-leaf-light text-primary",
   },
   {
     icon: Truck,
     title: "Smart Matching",
-    description: "Our platform connects food donations with nearby recipients based on need and logistics.",
+    description: "Approved NGOs and campus volunteers see nearby college food sources based on pickup location and need.",
     color: "bg-carrot-light text-secondary",
   },
   {
     icon: Heart,
-    title: "Feed Communities",
-    description: "Food reaches shelters, food banks, and families in need—fresh and on time.",
+    title: "Serve Campus Needs",
+    description: "Surplus reaches students, NGO partners, and campus welfare teams fresh and on time.",
     color: "bg-accent text-primary",
   },
 ];
@@ -34,7 +34,7 @@ const HowItWorks = () => {
             How NoPlateEmpty Works
           </h2>
           <p className="text-muted-foreground text-lg">
-            Our smart platform makes food donation effortless—from listing to delivery in three simple steps.
+            Our smart platform keeps college food donation simple from listing to campus pickup.
           </p>
         </div>
 

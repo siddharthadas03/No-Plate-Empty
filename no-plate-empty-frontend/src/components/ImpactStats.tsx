@@ -3,33 +3,33 @@ import { Leaf, Scale, TrendingDown, Award } from "lucide-react";
 const stats = [
   {
     icon: Leaf,
-    value: "2.1M",
-    label: "Meals Redistributed",
-    description: "Fresh meals saved from waste",
+    value: "3",
+    label: "College Food Sources",
+    description: "Hostel, cafeteria, and event surplus",
     color: "text-primary",
     bgColor: "bg-leaf-light",
   },
   {
     icon: Scale,
-    value: "850K",
-    label: "Kg CO₂ Saved",
-    description: "Reduced carbon footprint",
+    value: "Fast",
+    label: "Pickup Coordination",
+    description: "Campus location and quantity tracking",
     color: "text-secondary",
     bgColor: "bg-carrot-light",
   },
   {
     icon: TrendingDown,
-    value: "45%",
-    label: "Less Food Waste",
-    description: "For partner organizations",
+    value: "Less",
+    label: "Food Waste",
+    description: "Surplus moved before expiry",
     color: "text-primary",
     bgColor: "bg-accent",
   },
   {
     icon: Award,
-    value: "98%",
-    label: "Satisfaction Rate",
-    description: "From donors & recipients",
+    value: "Live",
+    label: "Order Updates",
+    description: "Donor acceptance notifications",
     color: "text-secondary",
     bgColor: "bg-carrot-light",
   },
@@ -46,13 +46,13 @@ const ImpactStats = () => {
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-secondary font-semibold text-sm uppercase tracking-wider mb-4 block">
-            Our Impact
+            Campus Impact
           </span>
           <h2 className="text-3xl md:text-5xl font-display font-bold text-primary-foreground mb-4">
-            Making a Real Difference
+            Reducing College Food Waste
           </h2>
           <p className="text-primary-foreground/70 text-lg">
-            Every donation counts. Here's how our community is transforming food waste into meals that matter.
+            Every listed meal helps hostel messes, cafeterias, and event teams redirect edible food before it is thrown away.
           </p>
         </div>
 

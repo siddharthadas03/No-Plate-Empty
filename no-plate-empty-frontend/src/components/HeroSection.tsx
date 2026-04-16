@@ -31,7 +31,7 @@ const HeroSection = ({ onOpenDonor, onOpenRecipient }: HeroSectionProps) => {
           <div className="inline-flex items-center gap-2 bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/20 rounded-full px-4 py-2 mb-6 animate-fade-up">
             <Sparkles className="w-4 h-4 text-secondary" />
             <span className="text-sm font-medium text-primary-foreground">
-              Reducing food waste, fighting hunger
+              College food waste management
             </span>
           </div>
 
@@ -46,8 +46,7 @@ const HeroSection = ({ onOpenDonor, onOpenRecipient }: HeroSectionProps) => {
 
           {/* Description */}
           <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-xl animate-fade-up leading-relaxed" style={{ animationDelay: "0.2s" }}>
-            Connect surplus food from restaurants, stores, and events with local 
-            communities in need. Together, we can end hunger and reduce waste.
+            Connect surplus hostel mess, cafeteria, and college event food with approved NGOs and campus volunteers. Track requests, pickup points, and waste reduction from one college-focused platform.
           </p>
 
           {/* CTA Buttons */}
@@ -73,20 +72,20 @@ const HeroSection = ({ onOpenDonor, onOpenRecipient }: HeroSectionProps) => {
           {/* Stats */}
           <div className="grid grid-cols-4 gap-6 mt-12 pt-8 border-t-4 border-primary-foreground/20 animate-fade-up" style={{ animationDelay: "0.4s" }}>
             <div>
-              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">2M+</div>
-              <div className="text-sm text-primary-foreground/70">Meals Saved</div>
+              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">3+</div>
+              <div className="text-sm text-primary-foreground/70">Campus Sources</div>
             </div>
             <div>
-              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">5K+</div>
-              <div className="text-sm text-primary-foreground/70">Active Donors</div>
+              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">100%</div>
+              <div className="text-sm text-primary-foreground/70">College Focus</div>
             </div>
             <div>
-              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">300+</div>
-              <div className="text-sm text-primary-foreground/70">Partner Orgs</div>
+              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">Live</div>
+              <div className="text-sm text-primary-foreground/70">Order Updates</div>
             </div>
             <div>
-              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">24/7</div>
-              <div className="text-sm text-primary-foreground/70">Available</div>
+              <div className="text-4xl md:text-4xl font-display font-bold text-secondary">Fast</div>
+              <div className="text-sm text-primary-foreground/70">Campus Pickup</div>
             </div>
           </div>
         </div>

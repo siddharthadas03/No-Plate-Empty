@@ -21,7 +21,7 @@ const journeyOptions = [
   {
     title: "Donate Surplus Food",
     description:
-      "For restaurants, hostels, shops, and kitchens ready to share extra food.",
+      "For hostel messes, college cafeterias, canteens, and event teams ready to share extra food.",
     actionLabel: "Join as Donor",
     icon: HeartHandshake,
     actionKey: "donor" as const,
@@ -29,7 +29,7 @@ const journeyOptions = [
   {
     title: "Receive Food for Your NGO",
     description:
-      "For NGOs and community organizations that need access to nearby available food.",
+      "For NGOs, NSS units, and campus welfare teams that collect available college food.",
     actionLabel: "Join as Recipient",
     icon: Building2,
     actionKey: "recipient" as const,
@@ -37,7 +37,7 @@ const journeyOptions = [
   {
     title: "Manage Approvals as Admin",
     description:
-      "For super admins who approve new accounts and monitor the platform.",
+      "For super admins who approve campus donors, recipients, and platform activity.",
     actionLabel: "Admin Sign In",
     icon: ShieldCheck,
     actionKey: "admin" as const,
@@ -72,7 +72,7 @@ const JourneyDialog = ({
         <div className="bg-gradient-to-br from-primary via-primary/95 to-secondary p-8 text-primary-foreground">
           <DialogHeader className="space-y-3 text-left">
             <DialogTitle className="text-3xl font-display font-bold">
-              Start Your Journey with NoPlateEmpty
+              Start Your Campus Journey with NoPlateEmpty
             </DialogTitle>
             <DialogDescription className="max-w-2xl text-base text-primary-foreground/80">
               Choose how you want to use the platform and we will take you to

@@ -45,14 +45,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { getErrorMessage } from "@/lib/auth";
 import {
+  DonorEntry,
   DonorPerformanceAnalyticsInput,
   DonorPerformanceAnalyticsResponse,
   OrderItem,
   getDonorOrders,
   getDonorPerformanceAnalytics,
+  getMyDonorEntries,
 } from "@/lib/feature-api";
 
 const weekdayOptions = [
@@ -65,7 +68,7 @@ const weekdayOptions = [
   { value: 6, label: "Sunday" },
 ];
 
-const weekdayCodeToDay = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const weekdayCodeToDay = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 const mealTypeOptions = [
   { value: "breakfast", label: "Breakfast" },
@@ -81,17 +84,36 @@ const mealSlotOptions = [
   { value: "dinner", label: "Dinner" },
 ] as const;
 
+type MealSlot = (typeof mealSlotOptions)[number]["value"];
+type WeekdayCode = (typeof weekdayCodeToDay)[number];
+type ModelHostel = "A" | "B";
+
+interface WeeklyMenuMeal {
+  label: string;
+  type: string;
+  popularity: number;
+  waste: number;
+}
+
+type WeeklyMenuEntry = { day: WeekdayCode } & Record<MealSlot, WeeklyMenuMeal>;
+type WeeklyMenuPlan = WeeklyMenuEntry[];
+type OutletMenuPlans = Record<string, WeeklyMenuPlan>;
+
+interface OutletOption {
+  value: string;
+  label: string;
+  modelHostel: ModelHostel;
+}
+
+const DEFAULT_OUTLET_ID = "A";
+const MENU_STORAGE_PREFIX = "noPlateEmpty.weeklyOutletMenus";
+
 const menuOptions = [
   { value: "idli_sambar", label: "Idli Sambar" },
   { value: "poha", label: "Poha" },
   { value: "rice_dal", label: "Rice Dal" },
   { value: "roti_sabji", label: "Roti Sabji" },
   { value: "veg_pulao", label: "Veg Pulao" },
-];
-
-const hostelOptions = [
-  { value: "A", label: "Hostel A" },
-  { value: "B", label: "Hostel B" },
 ];
 
 const orderStatusColors = ["#D97706", "#2563EB", "#059669", "#DC2626"];
@@ -102,7 +124,10 @@ const orderStatusColorMap: Record<string, string> = {
   Rejected: "#DC2626",
 };
 
-const hostelMenuPlans = {
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const defaultMenuPlans: Record<ModelHostel, WeeklyMenuPlan> = {
   A: [
     {
       day: "Mon",
@@ -205,7 +230,174 @@ const hostelMenuPlans = {
       dinner: { label: "Rice, Roti, Dal, Chholle Sabji, Masala Egg, Friems, Mixed Boiled Vegetable", type: "Mixed", popularity: 82, waste: 11 },
     },
   ],
-} as const;
+};
+
+const cloneWeeklyMenuMeal = (meal: WeeklyMenuMeal): WeeklyMenuMeal => ({
+  label: meal.label,
+  type: meal.type,
+  popularity: meal.popularity,
+  waste: meal.waste,
+});
+
+const cloneWeeklyMenuPlan = (plan: WeeklyMenuPlan): WeeklyMenuPlan =>
+  plan.map((entry) => ({
+    day: entry.day,
+    breakfast: cloneWeeklyMenuMeal(entry.breakfast),
+    lunch: cloneWeeklyMenuMeal(entry.lunch),
+    eveningSnacks: cloneWeeklyMenuMeal(entry.eveningSnacks),
+    dinner: cloneWeeklyMenuMeal(entry.dinner),
+  }));
+
+const getDefaultWeeklyMenuPlan = (outletIndex = 0) =>
+  cloneWeeklyMenuPlan(defaultMenuPlans[outletIndex % 2 === 0 ? "A" : "B"]);
+
+const inferMenuType = (label: string, fallback = "Veg") => {
+  const normalized = label.toLowerCase();
+
+  if (!normalized.trim()) {
+    return fallback;
+  }
+
+  const hasNonVeg = ["chicken", "fish", "egg", "mutton", "meat", "keema", "prawn"].some(
+    (term) => normalized.includes(term),
+  );
+  const hasVegCue = ["paneer", "veg", "sabji", "dal", "chholle", "soya", "matar"].some(
+    (term) => normalized.includes(term),
+  );
+
+  if (hasNonVeg && hasVegCue) {
+    return "Mixed";
+  }
+
+  return hasNonVeg ? "Non Veg" : "Veg";
+};
+
+const sanitizeWeeklyMenuMeal = (
+  value: unknown,
+  fallback: WeeklyMenuMeal,
+): WeeklyMenuMeal => {
+  const source =
+    value !== null && typeof value === "object" ? (value as Partial<WeeklyMenuMeal>) : {};
+  const label =
+    typeof source.label === "string" && source.label.trim()
+      ? source.label
+      : fallback.label;
+  const popularity = Number(source.popularity);
+  const waste = Number(source.waste);
+
+  return {
+    label,
+    type:
+      typeof source.type === "string" && source.type.trim()
+        ? source.type
+        : inferMenuType(label, fallback.type),
+    popularity: Number.isFinite(popularity)
+      ? clamp(Math.round(popularity), 0, 100)
+      : fallback.popularity,
+    waste: Number.isFinite(waste) ? clamp(Math.round(waste), 0, 100) : fallback.waste,
+  };
+};
+
+const sanitizeWeeklyMenuPlan = (
+  value: unknown,
+  fallback: WeeklyMenuPlan,
+): WeeklyMenuPlan =>
+  weekdayCodeToDay.map((dayCode, index) => {
+    const sourcePlan = Array.isArray(value) ? value : [];
+    const sourceEntry = sourcePlan.find((entry) => entry?.day === dayCode);
+    const fallbackEntry = fallback[index] ?? getDefaultWeeklyMenuPlan(0)[index];
+
+    return {
+      day: dayCode,
+      breakfast: sanitizeWeeklyMenuMeal(sourceEntry?.breakfast, fallbackEntry.breakfast),
+      lunch: sanitizeWeeklyMenuMeal(sourceEntry?.lunch, fallbackEntry.lunch),
+      eveningSnacks: sanitizeWeeklyMenuMeal(
+        sourceEntry?.eveningSnacks,
+        fallbackEntry.eveningSnacks,
+      ),
+      dinner: sanitizeWeeklyMenuMeal(sourceEntry?.dinner, fallbackEntry.dinner),
+    };
+  });
+
+const getWeeklyMenuPlanForOutlet = (
+  outletMenuPlans: OutletMenuPlans,
+  outletId: string,
+  outletIndex = 0,
+) => outletMenuPlans[outletId] ?? getDefaultWeeklyMenuPlan(outletIndex);
+
+const getMenuStorageKey = (userId?: string) =>
+  `${MENU_STORAGE_PREFIX}.${userId || "anonymous"}`;
+
+const readStoredOutletMenuPlans = (userId?: string): OutletMenuPlans => {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(getMenuStorageKey(userId));
+
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsed = JSON.parse(rawValue);
+
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.entries(parsed as Record<string, unknown>).reduce<OutletMenuPlans>(
+      (plans, [outletId, plan], index) => {
+        if (outletId.trim()) {
+          plans[outletId] = sanitizeWeeklyMenuPlan(plan, getDefaultWeeklyMenuPlan(index));
+        }
+
+        return plans;
+      },
+      {},
+    );
+  } catch {
+    return {};
+  }
+};
+
+const saveStoredOutletMenuPlans = (userId: string | undefined, plans: OutletMenuPlans) => {
+  if (typeof window === "undefined" || !userId) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getMenuStorageKey(userId), JSON.stringify(plans));
+  } catch {
+    // Local storage is optional for this editor; the live state still works.
+  }
+};
+
+const ensureOutletMenuPlans = (
+  currentPlans: OutletMenuPlans,
+  outlets: DonorEntry[],
+): OutletMenuPlans => {
+  const nextPlans = { ...currentPlans };
+
+  if (outlets.length === 0) {
+    nextPlans[DEFAULT_OUTLET_ID] =
+      nextPlans[DEFAULT_OUTLET_ID] ?? getDefaultWeeklyMenuPlan(0);
+    return nextPlans;
+  }
+
+  outlets.forEach((outlet, index) => {
+    if (!outlet._id) {
+      return;
+    }
+
+    nextPlans[outlet._id] = sanitizeWeeklyMenuPlan(
+      nextPlans[outlet._id],
+      getDefaultWeeklyMenuPlan(index),
+    );
+  });
+
+  return nextPlans;
+};
 
 const shiftHexColor = (hex: string, amount: number) => {
   const normalized = hex.replace("#", "");
@@ -272,7 +464,7 @@ const getDefaultAnalyticsInput = (): DonorPerformanceAnalyticsInput => {
     weekday: jsDay === 0 ? 6 : jsDay - 1,
     meal_type: "lunch",
     menu: "idli_sambar",
-    hostel: "A",
+    hostel: DEFAULT_OUTLET_ID,
   };
 };
 
@@ -282,9 +474,6 @@ const getStatusCount = (orders: OrderItem[], status: OrderItem["status"]) =>
   orders.filter((order) => order.status === status).length;
 
 const formatPercent = (value: number) => `${Math.round(value)}%`;
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
 
 const getRiskMeta = (risk?: string) => {
   switch (risk) {
@@ -376,16 +565,19 @@ const getModelMealType = (
 
 const getForecastInputFromPlanner = (
   plannerDate: string,
-  hostel: DonorPerformanceAnalyticsInput["hostel"],
+  outletId: DonorPerformanceAnalyticsInput["hostel"],
   mealType: DonorPerformanceAnalyticsInput["meal_type"],
+  outletMenuPlans: OutletMenuPlans = {},
+  outletIndex = 0,
 ): DonorPerformanceAnalyticsInput => {
   const selected = new Date(plannerDate);
   const fallback = getDefaultAnalyticsInput();
+  const safeOutletId = String(outletId || DEFAULT_OUTLET_ID);
 
   if (Number.isNaN(selected.getTime())) {
     return {
       ...fallback,
-      hostel,
+      hostel: safeOutletId,
       meal_type: mealType,
     };
   }
@@ -394,7 +586,6 @@ const getForecastInputFromPlanner = (
   const weekday = jsDay === 0 ? 6 : jsDay - 1;
   const day = selected.getDate();
   const dayCode = weekdayCodeToDay[weekday] ?? "Mon";
-  const safeHostel = hostel === "B" ? "B" : "A";
   const safeMealType =
     mealType === "breakfast" ||
     mealType === "lunch" ||
@@ -402,23 +593,33 @@ const getForecastInputFromPlanner = (
     mealType === "dinner"
       ? mealType
       : "lunch";
-  const matchedMenu = hostelMenuPlans[safeHostel].find((entry) => entry.day === dayCode);
+  const matchedMenu = getWeeklyMenuPlanForOutlet(
+    outletMenuPlans,
+    safeOutletId,
+    outletIndex,
+  ).find((entry) => entry.day === dayCode);
   const matchedMeal = matchedMenu?.[safeMealType];
 
   return {
     day,
     weekday,
-    hostel: safeHostel,
+    hostel: safeOutletId,
     meal_type: safeMealType,
     menu: getModelMenuFromSchedule(safeMealType, matchedMeal?.label),
   };
 };
 
 const PerformanceAnalyticsSection = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const plannerDateInputRef = useRef<HTMLInputElement | null>(null);
+  const hasLoadedInitialForecastRef = useRef(false);
   const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [selectedHostel, setSelectedHostel] = useState<"A" | "B">("A");
+  const [outlets, setOutlets] = useState<DonorEntry[]>([]);
+  const [outletMenuPlans, setOutletMenuPlans] = useState<OutletMenuPlans>(() => ({
+    [DEFAULT_OUTLET_ID]: getDefaultWeeklyMenuPlan(0),
+  }));
+  const [selectedOutletId, setSelectedOutletId] = useState(DEFAULT_OUTLET_ID);
+  const [menuStorageOwnerId, setMenuStorageOwnerId] = useState<string | null>(null);
   const [menuInsightMeal, setMenuInsightMeal] = useState<
     "breakfast" | "lunch" | "eveningSnacks" | "dinner"
   >("lunch");
@@ -428,12 +629,51 @@ const PerformanceAnalyticsSection = () => {
   );
   const [forecast, setForecast] = useState<DonorPerformanceAnalyticsResponse | null>(null);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [isLoadingOutlets, setIsLoadingOutlets] = useState(true);
   const [isRefreshingOrders, setIsRefreshingOrders] = useState(false);
   const [isForecasting, setIsForecasting] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const outletOptions = useMemo<OutletOption[]>(() => {
+    if (outlets.length === 0) {
+      return [{ value: DEFAULT_OUTLET_ID, label: "Sample Outlet", modelHostel: "A" }];
+    }
+
+    return outlets.map((outlet, index) => ({
+      value: outlet._id,
+      label: outlet.title?.trim() || `Outlet ${index + 1}`,
+      modelHostel: index % 2 === 0 ? "A" : "B",
+    }));
+  }, [outlets]);
+
+  const outletOptionIds = useMemo(
+    () => outletOptions.map((option) => option.value).join("|"),
+    [outletOptions],
+  );
+
+  const getOutletIndex = useCallback(
+    (outletId: string) => {
+      const index = outletOptions.findIndex((option) => option.value === outletId);
+      return index >= 0 ? index : 0;
+    },
+    [outletOptions],
+  );
+
+  const getOutletLabel = useCallback(
+    (outletId: string) =>
+      outletOptions.find((option) => option.value === outletId)?.label || "Selected outlet",
+    [outletOptions],
+  );
+
+  const getModelHostelForOutlet = useCallback(
+    (outletId: string): ModelHostel =>
+      outletOptions.find((option) => option.value === outletId)?.modelHostel ||
+      (outletId === "B" ? "B" : "A"),
+    [outletOptions],
+  );
 
   const loadOrders = useCallback(async (refresh = false) => {
     if (!token) {
@@ -465,13 +705,37 @@ const PerformanceAnalyticsSection = () => {
     }
   }, [token]);
 
+  const loadOutlets = useCallback(async () => {
+    if (!token) {
+      setOutlets([]);
+      setIsLoadingOutlets(false);
+      return;
+    }
+
+    setIsLoadingOutlets(true);
+
+    try {
+      const response = await getMyDonorEntries(token);
+      setOutlets(response.Doners || []);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: getErrorMessage(error, "Unable to load your outlets for analytics."),
+      });
+    } finally {
+      setIsLoadingOutlets(false);
+    }
+  }, [token]);
+
   const loadForecast = useCallback(async (input: DonorPerformanceAnalyticsInput) => {
     setIsForecasting(true);
 
     try {
       const modelMealType = getModelMealType(input.meal_type);
+      const displayOutletId = String(input.hostel || DEFAULT_OUTLET_ID);
       const safeInput = {
         ...input,
+        hostel: getModelHostelForOutlet(displayOutletId),
         meal_type: modelMealType,
         menu: menuOptions.some((option) => option.value === input.menu)
           ? input.menu
@@ -483,7 +747,7 @@ const PerformanceAnalyticsSection = () => {
         ...current,
         day: input.day,
         weekday: input.weekday,
-        hostel: input.hostel,
+        hostel: displayOutletId,
         meal_type: input.meal_type,
         menu: safeInput.menu,
       }));
@@ -496,7 +760,7 @@ const PerformanceAnalyticsSection = () => {
     } finally {
       setIsForecasting(false);
     }
-  }, []);
+  }, [getModelHostelForOutlet]);
 
   useEffect(() => {
     if (!token) {
@@ -507,13 +771,84 @@ const PerformanceAnalyticsSection = () => {
   }, [loadOrders, token]);
 
   useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    void loadOutlets();
+  }, [loadOutlets, token]);
+
+  useEffect(() => {
+    const storedPlans = readStoredOutletMenuPlans(user?._id);
+    setOutletMenuPlans(
+      Object.keys(storedPlans).length > 0
+        ? storedPlans
+        : { [DEFAULT_OUTLET_ID]: getDefaultWeeklyMenuPlan(0) },
+    );
+    setMenuStorageOwnerId(user?._id ?? null);
+  }, [user?._id]);
+
+  useEffect(() => {
+    setOutletMenuPlans((current) => ensureOutletMenuPlans(current, outlets));
+  }, [outlets, user?._id]);
+
+  useEffect(() => {
+    if (!user?._id || menuStorageOwnerId !== user._id) {
+      return;
+    }
+
+    saveStoredOutletMenuPlans(user._id, outletMenuPlans);
+  }, [menuStorageOwnerId, outletMenuPlans, user?._id]);
+
+  useEffect(() => {
+    if (hasLoadedInitialForecastRef.current) {
+      return;
+    }
+
+    hasLoadedInitialForecastRef.current = true;
+    const defaultOutletId = outletOptions[0]?.value ?? DEFAULT_OUTLET_ID;
     const initialInput = getForecastInputFromPlanner(
       getDefaultPlannerDate(),
-      "A",
+      defaultOutletId,
       getDefaultAnalyticsInput().meal_type,
+      outletMenuPlans,
+      getOutletIndex(defaultOutletId),
     );
     void loadForecast(initialInput);
-  }, [loadForecast]);
+  }, [getOutletIndex, loadForecast, outletMenuPlans, outletOptions]);
+
+  useEffect(() => {
+    const defaultOutletId = outletOptions[0]?.value ?? DEFAULT_OUTLET_ID;
+    const currentOutletId = String(forecastInput.hostel || DEFAULT_OUTLET_ID);
+    const isForecastOutletAvailable = outletOptions.some(
+      (option) => option.value === currentOutletId,
+    );
+    const isSelectedOutletAvailable = outletOptions.some(
+      (option) => option.value === selectedOutletId,
+    );
+
+    if (!isSelectedOutletAvailable) {
+      setSelectedOutletId(defaultOutletId);
+    }
+
+    if (isForecastOutletAvailable) {
+      return;
+    }
+
+    const nextInput = getForecastInputFromPlanner(
+      plannerDate,
+      defaultOutletId,
+      forecastInput.meal_type,
+      outletMenuPlans,
+      getOutletIndex(defaultOutletId),
+    );
+
+    setForecastInput(nextInput);
+
+    if (outlets.length > 0) {
+      void loadForecast(nextInput);
+    }
+  }, [outletOptionIds]);
 
   useEffect(() => {
     if (message?.type !== "success") {
@@ -609,18 +944,38 @@ const PerformanceAnalyticsSection = () => {
   }, [forecast, projectedGap]);
 
   const currentWeeklyMenuPlan = useMemo(
-    () => hostelMenuPlans[selectedHostel],
-    [selectedHostel],
+    () =>
+      getWeeklyMenuPlanForOutlet(
+        outletMenuPlans,
+        selectedOutletId,
+        getOutletIndex(selectedOutletId),
+      ),
+    [getOutletIndex, outletMenuPlans, selectedOutletId],
   );
 
-  const plannerHostel = useMemo(
-    () => (forecastInput.hostel === "B" ? "B" : "A"),
+  const selectedOutletLabel = useMemo(
+    () => getOutletLabel(selectedOutletId),
+    [getOutletLabel, selectedOutletId],
+  );
+
+  const plannerOutletId = useMemo(
+    () => String(forecastInput.hostel || DEFAULT_OUTLET_ID),
     [forecastInput.hostel],
   );
 
+  const plannerOutletLabel = useMemo(
+    () => getOutletLabel(plannerOutletId),
+    [getOutletLabel, plannerOutletId],
+  );
+
   const plannerWeeklyMenuPlan = useMemo(
-    () => hostelMenuPlans[plannerHostel],
-    [plannerHostel],
+    () =>
+      getWeeklyMenuPlanForOutlet(
+        outletMenuPlans,
+        plannerOutletId,
+        getOutletIndex(plannerOutletId),
+      ),
+    [getOutletIndex, outletMenuPlans, plannerOutletId],
   );
 
   const plannerMealSlot = useMemo(
@@ -647,9 +1002,64 @@ const PerformanceAnalyticsSection = () => {
 
   useEffect(() => {
     setForecastInput((current) =>
-      getForecastInputFromPlanner(plannerDate, current.hostel, current.meal_type),
+      getForecastInputFromPlanner(
+        plannerDate,
+        current.hostel,
+        current.meal_type,
+        outletMenuPlans,
+        getOutletIndex(String(current.hostel || DEFAULT_OUTLET_ID)),
+      ),
     );
-  }, [plannerDate, plannerMealSlot, plannerWeeklyMenuPlan]);
+  }, [getOutletIndex, outletMenuPlans, plannerDate]);
+
+  const updateOutletMenuLabel = useCallback(
+    (outletId: string, dayCode: WeekdayCode, mealSlot: MealSlot, label: string) => {
+      setOutletMenuPlans((current) => {
+        const outletIndex = getOutletIndex(outletId);
+        const currentPlan = getWeeklyMenuPlanForOutlet(current, outletId, outletIndex);
+
+        return {
+          ...current,
+          [outletId]: currentPlan.map((entry) => {
+            if (entry.day !== dayCode) {
+              return entry;
+            }
+
+            const currentMeal = entry[mealSlot];
+
+            return {
+              ...entry,
+              [mealSlot]: {
+                ...currentMeal,
+                label,
+                type: inferMenuType(label, currentMeal.type),
+              },
+            };
+          }),
+        };
+      });
+    },
+    [getOutletIndex],
+  );
+
+  const resetSelectedOutletMenu = useCallback(() => {
+    setOutletMenuPlans((current) => ({
+      ...current,
+      [selectedOutletId]: getDefaultWeeklyMenuPlan(getOutletIndex(selectedOutletId)),
+    }));
+  }, [getOutletIndex, selectedOutletId]);
+
+  const applySelectedOutletToForecast = useCallback(() => {
+    setForecastInput((current) =>
+      getForecastInputFromPlanner(
+        plannerDate,
+        selectedOutletId,
+        current.meal_type,
+        outletMenuPlans,
+        getOutletIndex(selectedOutletId),
+      ),
+    );
+  }, [getOutletIndex, outletMenuPlans, plannerDate, selectedOutletId]);
 
   const weeklyMealRankingData = useMemo(
     () =>
@@ -841,10 +1251,10 @@ const PerformanceAnalyticsSection = () => {
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-slate-950/15 p-3">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">
-                        Hostel
+                        Outlet
                       </p>
                       <p className="mt-2 text-sm font-medium text-white/90">
-                        Hostel {forecastInput.hostel}
+                        {plannerOutletLabel}
                       </p>
                     </div>
                   </div>
@@ -1226,10 +1636,15 @@ const PerformanceAnalyticsSection = () => {
                 <Select
                   value={String(forecastInput.meal_type)}
                   onValueChange={(value) =>
-                    setForecastInput((current) => ({
-                      ...current,
-                      meal_type: value,
-                    }))
+                    setForecastInput((current) =>
+                      getForecastInputFromPlanner(
+                        plannerDate,
+                        current.hostel,
+                        value,
+                        outletMenuPlans,
+                        getOutletIndex(String(current.hostel || DEFAULT_OUTLET_ID)),
+                      ),
+                    )
                   }
                 >
                   <SelectTrigger>
@@ -1246,21 +1661,27 @@ const PerformanceAnalyticsSection = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Hostel</Label>
+                <Label>Outlet</Label>
                 <Select
                   value={String(forecastInput.hostel)}
-                  onValueChange={(value) =>
-                    setForecastInput((current) => ({
-                      ...current,
-                      hostel: value,
-                    }))
-                  }
+                  onValueChange={(value) => {
+                    setSelectedOutletId(value);
+                    setForecastInput((current) =>
+                      getForecastInputFromPlanner(
+                        plannerDate,
+                        value,
+                        current.meal_type,
+                        outletMenuPlans,
+                        getOutletIndex(value),
+                      ),
+                    );
+                  }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select hostel" />
+                    <SelectValue placeholder="Select outlet" />
                   </SelectTrigger>
                   <SelectContent>
-                    {hostelOptions.map((option) => (
+                    {outletOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -1272,20 +1693,20 @@ const PerformanceAnalyticsSection = () => {
 
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm leading-6 text-muted-foreground">
               The planner uses the selected calendar date to derive the weekday automatically and
-              match the correct hostel meal schedule for the forecast.
+              match the correct outlet meal schedule for the forecast.
             </div>
 
             {plannerDayMenu && (
               <>
               <div className="hidden rounded-2xl border border-border/60 bg-background/80 px-4 py-3 text-sm leading-6 text-muted-foreground">
                 Matched schedule:
-                {` ${plannerHostel === "A" ? "Hostel A" : "Hostel B"} â€¢ ${plannerDayMenu.day} â€¢ `}
+                {` ${plannerOutletLabel} | ${plannerDayMenu.day} | `}
                 {mealTypeOptions.find((option) => option.value === plannerMealSlot)?.label}
-                {` â€¢ ${plannerDayMenu[plannerMealSlot].label}`}
+                {` | ${plannerDayMenu[plannerMealSlot].label}`}
               </div>
               <div className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-sm leading-6 text-muted-foreground">
                 Matched schedule:
-                {` ${plannerHostel === "A" ? "Hostel A" : "Hostel B"} | ${plannerDayMenu.day} | `}
+                {` ${plannerOutletLabel} | ${plannerDayMenu.day} | `}
                 {mealTypeOptions.find((option) => option.value === plannerMealSlot)?.label}
                 {` | ${plannerDayMenu[plannerMealSlot].label}`}
               </div>
@@ -1303,8 +1724,16 @@ const PerformanceAnalyticsSection = () => {
                 variant="outline"
                 onClick={() => {
                   const defaultDate = getDefaultPlannerDate();
-                  const defaults = getForecastInputFromPlanner(defaultDate, "A", "lunch");
+                  const defaultOutletId = outletOptions[0]?.value ?? DEFAULT_OUTLET_ID;
+                  const defaults = getForecastInputFromPlanner(
+                    defaultDate,
+                    defaultOutletId,
+                    "lunch",
+                    outletMenuPlans,
+                    getOutletIndex(defaultOutletId),
+                  );
                   setPlannerDate(defaultDate);
+                  setSelectedOutletId(defaultOutletId);
                   setForecastInput(defaults);
                   void loadForecast(defaults);
                 }}
@@ -1333,6 +1762,105 @@ const PerformanceAnalyticsSection = () => {
         )}
       </div>
 
+      <Card className="border-border/60 bg-background/92 shadow-lg">
+        <CardHeader className="flex flex-col gap-4 pb-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <ChefHat className="h-5 w-5 text-primary" />
+              Weekly Outlet Menu
+            </CardTitle>
+            <CardDescription>
+              Add the 7-day menu for breakfast, lunch, evening snacks, and dinner for each outlet.
+            </CardDescription>
+          </div>
+
+          <div className="flex w-full flex-col gap-3 sm:max-w-[620px] sm:flex-row sm:items-end">
+            <div className="w-full space-y-2">
+              <Label>Outlet</Label>
+              <Select value={selectedOutletId} onValueChange={setSelectedOutletId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select outlet" />
+                </SelectTrigger>
+                <SelectContent>
+                  {outletOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={applySelectedOutletToForecast}
+              className="sm:shrink-0"
+            >
+              Use In Forecast
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetSelectedOutletMenu}
+              className="sm:shrink-0"
+            >
+              Reset Menu
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoadingOutlets ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              Loading your outlets...
+            </div>
+          ) : outlets.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Create an outlet first, then its name will appear here for menu planning.
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Editing menu for {selectedOutletLabel}. Changes stay saved in this browser for your donor login.
+            </div>
+          )}
+
+          <div className="grid gap-3">
+            {currentWeeklyMenuPlan.map((dayMenu) => (
+              <div
+                key={dayMenu.day}
+                className="rounded-2xl border border-border/60 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.18))] p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-foreground">{dayMenu.day}</p>
+                  <Badge variant="outline">{selectedOutletLabel}</Badge>
+                </div>
+                <div className="mt-3 grid gap-3 lg:grid-cols-4">
+                  {mealSlotOptions.map((slot) => (
+                    <div key={slot.value} className="space-y-2">
+                      <Label>{slot.label}</Label>
+                      <Textarea
+                        rows={2}
+                        value={dayMenu[slot.value].label}
+                        onChange={(event) =>
+                          updateOutletMenuLabel(
+                            selectedOutletId,
+                            dayMenu.day,
+                            slot.value,
+                            event.target.value,
+                          )
+                        }
+                        placeholder={`${slot.label} menu`}
+                        className="min-h-[74px] resize-y"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card className="border-border/60 bg-background/92 shadow-lg xl:col-span-2">
           <CardHeader className="flex flex-col gap-4 pb-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1342,24 +1870,27 @@ const PerformanceAnalyticsSection = () => {
                 Weekly Menu Intelligence
               </CardTitle>
               <CardDescription>
-                Review both hostel menus, then inspect weekly consumption and waste patterns
+                Review outlet menus, then inspect weekly consumption and waste patterns
                 for the selected meal window.
               </CardDescription>
             </div>
 
             <div className="flex w-full flex-col gap-4 sm:max-w-[460px] sm:flex-row">
               <div className="w-full space-y-2">
-                <Label>Hostel Filter</Label>
+                <Label>Outlet Filter</Label>
                 <Select
-                  value={selectedHostel}
-                  onValueChange={(value) => setSelectedHostel(value as "A" | "B")}
+                  value={selectedOutletId}
+                  onValueChange={setSelectedOutletId}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select hostel" />
+                    <SelectValue placeholder="Select outlet" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="A">Hostel A</SelectItem>
-                    <SelectItem value="B">Hostel B</SelectItem>
+                    {outletOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1395,7 +1926,7 @@ const PerformanceAnalyticsSection = () => {
                   <p className="font-semibold text-foreground">Weekly Waste Trend</p>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Waste score by day for {selectedHostel === "A" ? "Hostel A" : "Hostel B"} in{" "}
+                  Waste score by day for {selectedOutletLabel} in{" "}
                   {mealSlotOptions.find((option) => option.value === menuInsightMeal)?.label.toLowerCase()}.
                 </p>
 
@@ -1443,7 +1974,7 @@ const PerformanceAnalyticsSection = () => {
                     <p className="font-semibold text-foreground">Weekly Food Consume Trend</p>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {selectedHostel === "A" ? "Hostel A" : "Hostel B"} ranking for{" "}
+                    {selectedOutletLabel} ranking for{" "}
                     {mealSlotOptions.find((option) => option.value === menuInsightMeal)?.label.toLowerCase()} this week.
                   </p>
 
@@ -1507,7 +2038,7 @@ const PerformanceAnalyticsSection = () => {
 
                 <div className="hidden rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
                   The weekly menu list has been hidden so this area stays chart-first. Use the
-                  hostel and meal filters to compare weekly consume movement faster.
+                  outlet and meal filters to compare weekly consume movement faster.
                 </div>
               </div>
             </div>
@@ -1519,7 +2050,7 @@ const PerformanceAnalyticsSection = () => {
                   <p className="font-semibold text-foreground">Weekly Waste Trend</p>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Waste score by day for {selectedHostel === "A" ? "Hostel A" : "Hostel B"} in{" "}
+                  Waste score by day for {selectedOutletLabel} in{" "}
                   {mealSlotOptions.find((option) => option.value === menuInsightMeal)?.label.toLowerCase()}.
                 </p>
 
@@ -1580,7 +2111,7 @@ const PerformanceAnalyticsSection = () => {
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Higher consume score means that menu was better received for the selected meal
                     slot. Higher waste score means more leftovers were likely produced. This makes
-                    it easier to compare hostel-level menu performance over the full week.
+                    it easier to compare outlet-level menu performance over the full week.
                   </p>
                 </div>
               </div>
@@ -1626,7 +2157,7 @@ const PerformanceAnalyticsSection = () => {
             </div>
 
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
-              Use the hostel and meal filters above to compare both weekly trends. Higher consume
+              Use the outlet and meal filters above to compare both weekly trends. Higher consume
               scores suggest stronger reception, while higher waste scores indicate meal windows
               that may need tighter cooking control.
             </div>
@@ -1711,7 +2242,7 @@ const PerformanceAnalyticsSection = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Hostel</Label>
+                <Label>Outlet</Label>
                 <Select
                   value={String(forecastInput.hostel)}
                   onValueChange={(value) =>
@@ -1722,10 +2253,10 @@ const PerformanceAnalyticsSection = () => {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select hostel" />
+                    <SelectValue placeholder="Select outlet" />
                   </SelectTrigger>
                   <SelectContent>
-                    {hostelOptions.map((option) => (
+                    {outletOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -1737,15 +2268,15 @@ const PerformanceAnalyticsSection = () => {
 
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
               The planner now uses a calendar date and derives the weekday automatically.
-              Menu choices are aligned to the selected hostel and meal type for that weekly schedule.
+              Menu choices are aligned to the selected outlet and meal type for that weekly schedule.
             </div>
 
             {plannerDayMenu && (
               <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
                 Matched schedule:
-                {` ${plannerHostel === "A" ? "Hostel A" : "Hostel B"} • ${plannerDayMenu.day} • `}
+                {` ${plannerOutletLabel} | ${plannerDayMenu.day} | `}
                 {mealTypeOptions.find((option) => option.value === plannerMealSlot)?.label}
-                {` • ${plannerDayMenu[plannerMealSlot].label}`}
+                {` | ${plannerDayMenu[plannerMealSlot].label}`}
               </div>
             )}
 

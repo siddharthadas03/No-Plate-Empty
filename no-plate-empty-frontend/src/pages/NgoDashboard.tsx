@@ -5,15 +5,25 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
+import { useNgoOrderNotifications } from "@/hooks/use-ngo-order-notifications";
 import FoodBrowseSection from "@/components/recipient/FoodBrowseSection";
 import DonorDirectorySection from "@/components/recipient/DonorDirectorySection";
 import OrderHistorySection from "@/components/recipient/OrderHistorySection";
 
 const NgoDashboard = () => {
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout, token, user } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [orderRefreshSignal, setOrderRefreshSignal] = useState(0);
+
+  useNgoOrderNotifications({
+    enabled: user?.role === "NGO",
+    token,
+    userId: user?._id,
+    syncSignal: orderRefreshSignal,
+    onAcceptedOrder: () =>
+      setOrderRefreshSignal((currentSignal) => currentSignal + 1),
+  });
 
   if (!user) {
     return null;

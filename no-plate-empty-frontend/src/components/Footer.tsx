@@ -11,14 +11,14 @@ const Footer = () => {
     ],
     resources: [
       { label: "Help Center", href: "#" },
-      { label: "Food Safety Guide", href: "#" },
-      { label: "Success Stories", href: "#" },
-      { label: "Blog", href: "#" },
+      { label: "Campus Food Safety Guide", href: "#" },
+      { label: "Pickup Guidelines", href: "#" },
+      { label: "Waste Reports", href: "#" },
     ],
     company: [
-      { label: "About Us", href: "#" },
-      { label: "Careers", href: "#" },
-      { label: "Press", href: "#" },
+      { label: "About Project", href: "#" },
+      { label: "College Partners", href: "#" },
+      { label: "Volunteer Team", href: "#" },
       { label: "Contact", href: "#" },
     ],
   };
@@ -38,21 +38,22 @@ const Footer = () => {
               </span>
             </Link>
             <p className="text-primary-foreground/70 mb-6 max-w-sm leading-relaxed">
-              Connecting food surplus with communities in need. Together, we're
-              building a world where no good food goes to waste.
+              Connecting surplus hostel, cafeteria, and college event food with
+              approved NGOs and campus teams. Together, we are building a college
+              where no good food goes to waste.
             </p>
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-primary-foreground/70">
                 <Mail className="w-4 h-4" />
-                <span>hello@noplateempty.org</span>
+                <span>noplateempty@college.edu</span>
               </div>
               <div className="flex items-center gap-3 text-primary-foreground/70">
                 <Phone className="w-4 h-4" />
-                <span>1-800-SHARE-FOOD</span>
+                <span>+91 98765 43210</span>
               </div>
               <div className="flex items-center gap-3 text-primary-foreground/70">
                 <MapPin className="w-4 h-4" />
-                <span>Serving communities nationwide</span>
+                <span>Serving college campuses</span>
               </div>
             </div>
           </div>

@@ -22,16 +22,16 @@ const CTASection = ({ onStartJourney, onLearnMore }: CTASectionProps) => {
           <div className="relative z-10 max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 bg-primary-foreground/10 rounded-full px-4 py-2 mb-6">
               <Sparkles className="w-4 h-4 text-secondary" />
-              <span className="text-sm font-medium text-primary-foreground">Join our growing community</span>
+              <span className="text-sm font-medium text-primary-foreground">Join the campus network</span>
             </div>
 
             <h2 className="text-3xl md:text-5xl font-display font-bold text-primary-foreground mb-6">
-              Ready to Make a Difference?
+              Ready to Reduce Campus Food Waste?
             </h2>
 
             <p className="text-lg text-primary-foreground/80 mb-10 max-w-xl mx-auto">
-              Whether you have food to share or a community to feed, 
-              NoPlateEmpty connects you with the resources you need.
+              Whether your hostel mess has extra meals or your NGO can collect food,
+              NoPlateEmpty keeps the college donation flow clear and quick.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -52,11 +52,11 @@ const CTASection = ({ onStartJourney, onLearnMore }: CTASectionProps) => {
 
             {/* Trust indicators */}
             <div className="mt-12 pt-8 border-t border-primary-foreground/20">
-              <p className="text-primary-foreground/60 text-sm mb-4">Trusted by leading organizations</p>
+              <p className="text-primary-foreground/60 text-sm mb-4">Built for campus teams</p>
               <div className="flex flex-wrap justify-center gap-8 opacity-60">
-                <div className="text-primary-foreground font-display text-lg">FoodBank Alliance</div>
-                <div className="text-primary-foreground font-display text-lg">Green Restaurant</div>
-                <div className="text-primary-foreground font-display text-lg">Community Meals</div>
+                <div className="text-primary-foreground font-display text-lg">Hostel Mess</div>
+                <div className="text-primary-foreground font-display text-lg">College Cafeteria</div>
+                <div className="text-primary-foreground font-display text-lg">Event Committee</div>
               </div>
             </div>
           </div>

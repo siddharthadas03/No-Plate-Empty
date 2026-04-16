@@ -6,10 +6,10 @@ import foodBankImage from "@/assets/food-bank.jpg";
 // Donor Section with Props
 export const DonorSection = ({ onOpenRegister }: { onOpenRegister: () => void }) => {
   const benefits = [
-    "Easy scheduling & pickup coordination",
-    "Tax deduction documentation",
-    "Real-time impact tracking",
-    "Brand visibility & recognition",
+    "Hostel, cafeteria, and event food listing",
+    "Pickup point and expiry-time tracking",
+    "Real-time request and acceptance updates",
+    "Campus waste reduction records",
   ];
 
   return (
@@ -17,10 +17,10 @@ export const DonorSection = ({ onOpenRegister }: { onOpenRegister: () => void })
       <div className="container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="text-secondary font-semibold text-sm uppercase tracking-wider mb-4 block">For Businesses</span>
-            <h2 className="text-4xl font-display font-bold text-foreground mb-6">Turn Surplus Into Impact</h2>
+            <span className="text-secondary font-semibold text-sm uppercase tracking-wider mb-4 block">For Campus Donors</span>
+            <h2 className="text-4xl font-display font-bold text-foreground mb-6">Turn College Surplus Into Impact</h2>
             <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-              Join hundreds of businesses making a difference. Our platform handles the logistics.
+              Hostel messes, cafeterias, canteens, and event teams can share extra food before it is wasted.
             </p>
             <ul className="space-y-4 mb-8">
               {benefits.map((benefit, i) => (
@@ -31,7 +31,7 @@ export const DonorSection = ({ onOpenRegister }: { onOpenRegister: () => void })
               ))}
             </ul>
             <Button variant="default" size="lg" className="group" onClick={onOpenRegister}>
-              Become a Donor
+              Register Campus Donor
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
             </Button>
           </div>
@@ -48,10 +48,10 @@ export const DonorSection = ({ onOpenRegister }: { onOpenRegister: () => void })
 // Recipient Section with Props
 export const RecipientSection = ({ onOpenRegister }: { onOpenRegister: () => void }) => {
   const benefits = [
-    "Access to diverse, quality food sources",
-    "Real-time notifications for new donations",
-    "Efficient pickup scheduling",
-    "Free for all nonprofit organizations",
+    "Access to hostel, cafeteria, and event surplus",
+    "Popup alerts when donors accept requests",
+    "Campus pickup coordination",
+    "Built for approved NGOs and college welfare teams",
   ];
 
   return (
@@ -63,10 +63,10 @@ export const RecipientSection = ({ onOpenRegister }: { onOpenRegister: () => voi
             <div className="absolute -bottom-6 -left-6 w-48 h-48 bg-primary/20 rounded-full blur-3xl" />
           </div>
           <div className="order-1 lg:order-2">
-            <span className="text-secondary font-semibold text-sm uppercase tracking-wider mb-4 block">For Organizations</span>
-            <h2 className="text-4xl font-display font-bold text-foreground mb-6">More Food for Those in Need</h2>
+            <span className="text-secondary font-semibold text-sm uppercase tracking-wider mb-4 block">For Campus Recipients</span>
+            <h2 className="text-4xl font-display font-bold text-foreground mb-6">Collect College Food Before It Goes to Waste</h2>
             <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-              Connect with local donors and receive fresh food for the communities you serve.
+              Find available food from campus donors and coordinate pickup with approved NGO or welfare teams.
             </p>
             <ul className="space-y-4 mb-8">
               {benefits.map((benefit, i) => (
@@ -77,7 +77,7 @@ export const RecipientSection = ({ onOpenRegister }: { onOpenRegister: () => voi
               ))}
             </ul>
             <Button variant="secondary" size="lg" className="group" onClick={onOpenRegister}>
-              Register as Recipient
+              Register Recipient Team
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
             </Button>
           </div>
