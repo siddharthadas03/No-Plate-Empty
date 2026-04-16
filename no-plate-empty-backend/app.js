@@ -5,6 +5,9 @@ require("dotenv").config();
 
 const authRoutes = require("./routes/auth.routes");
 const adminRoutes = require("./routes/admin.routes");
+const categoryRoutes = require("./routes/categoryRoutes");
+const donorRoutes = require("./routes/DonerRoutes");
+const foodRoutes = require("./routes/foodRoutes");
 
 const app = express();
 
@@ -27,6 +30,9 @@ app.use(
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/v1/category", categoryRoutes);
+app.use("/api/v1/Doner", donorRoutes);
+app.use("/api/v1/food", foodRoutes);
 
 if (process.env.NODE_ENV === "production") {
   const clientBuildPath = path.join(
@@ -39,7 +45,15 @@ if (process.env.NODE_ENV === "production") {
 
   app.use(express.static(clientBuildPath));
 
-  app.get("*", (req, res) => {
+  app.use((req, res, next) => {
+    if (req.method !== "GET") {
+      return next();
+    }
+
+    if (req.path.startsWith("/api/")) {
+      return res.status(404).json({ message: "API route not found" });
+    }
+
     res.sendFile(path.join(clientBuildPath, "index.html"));
   });
 }

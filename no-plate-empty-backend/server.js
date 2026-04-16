@@ -2,10 +2,6 @@ const app = require("./app");
 const connectDB = require("./config/db");
 const { backfillStoredGeoPoints } = require("./utils/geoBackfill");
 
-app.use("/api/v1/category", require("./routes/categoryRoutes"));
-app.use("/api/v1/Doner", require("./routes/DonerRoutes"));
-app.use("/api/v1/food", require("./routes/foodRoutes"));
-
 const startServer = async () => {
   try {
     await connectDB();
