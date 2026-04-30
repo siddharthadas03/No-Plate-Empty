@@ -1045,3 +1045,5 @@ Answer: The biggest challenge was coordinating role-based flows with backend val
 Q. What did you personally contribute?
 
 Answer: I handled the backend part including routes, controllers, models, JWT authentication, role-based access, MongoDB integration, donor/food/order APIs, location matching, and I also helped connect backend APIs with frontend screens.
+
+hi Sayan
